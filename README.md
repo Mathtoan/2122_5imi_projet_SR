@@ -2,6 +2,8 @@
 
 Authors : CLAVEL Vincent, DUONG Mathieu, LE Célia
 
+## Prerequisites
+
 python 3.7.9 with the librairies:
 
 **Main librairies:**
