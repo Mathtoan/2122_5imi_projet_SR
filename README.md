@@ -10,5 +10,5 @@ python 3.7.9 with the librairies:
 
 > numpy==1.21.4 \
 > opencv==4.5.4.58 \
-> matplotlib==3.4.3 \
+> matplotlib==3.4.3 
 
