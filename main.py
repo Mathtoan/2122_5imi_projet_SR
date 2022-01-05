@@ -6,8 +6,10 @@ import numpy as np
 from scipy.ndimage import shift
 from skimage import io
 from skimage.color import rgb2gray
+from skimage.filters import gaussian
 from skimage.registration import phase_cross_correlation
 from skimage.transform import rescale
+from scipy.fftpack import fft2, ifft2
 
 # Parser
 parser = argparse.ArgumentParser(description='Super Resolution')
@@ -49,6 +51,26 @@ def creation_HR_grid(im_ref, upscale_factor, im_to_shift, shift):
 
     return im_sr
 
+def PG_method(HR_grid, im_ref, sigma, upscale_factor, it):
+    lr_size = im_ref.shape
+    im_sr = HR_grid
+    print(HR_grid.shape)
+    for i in range(it):
+        # fft_im_sr = fft2(im_sr)
+        # print(fft_im_sr.shape)
+        # fft_im_sr = gaussian(fft_im_sr, sigma)
+        # im_sr = ifft2(fft_im_sr)
+        im_sr = gaussian(im_sr, sigma)
+        for h in range(lr_size[0]):
+            for w in range(lr_size[1]):
+                idx_h_ref = h*upscale_factor+int(upscale_factor/2)
+                idx_w_ref = w*upscale_factor+int(upscale_factor/2)
+
+                im_sr[idx_h_ref][idx_w_ref] = im_ref[h][w]
+    return im_sr
+
+
+
 # Registration and SR grid creation
 # for idx_ref in range(len(list_image_input_dir)):
 #     print('######### idx_ref =', idx_ref, '#########')
@@ -88,14 +110,14 @@ def creation_HR_grid(im_ref, upscale_factor, im_to_shift, shift):
 
 idx_ref = 9
 print('######### idx_ref =', idx_ref, '#########')
-im_ref = rescale(rgb2gray(io.imread(list_image_input_dir[idx_ref])), 1/8)
+im_ref = rescale(rgb2gray(io.imread(list_image_input_dir[idx_ref])), 1)
 shift = []
 to_shift = []
 count_val = 0
 count_or = 0
 for i in range(len(list_image_input_dir)):
     if i != idx_ref:
-        im_to_register = rescale(rgb2gray(io.imread(list_image_input_dir[i])), 1/8)
+        im_to_register = rescale(rgb2gray(io.imread(list_image_input_dir[i])), 1)
 
         shifted, error, diffphase = phase_cross_correlation(im_ref, im_to_register,upsample_factor=upscale_factor)
         # registered_im = shift(im_to_register, shift=(shifted[0], shifted[1]), mode='constant')
@@ -122,11 +144,21 @@ for i in range(len(list_image_input_dir)):
 print(shift)
 print("at least 1 shift :", count_or, "| valid shifts :", count_val)
 
-im_sr = creation_HR_grid(rescale(rgb2gray(io.imread(list_image_input_dir[0])), 1/8), upscale_factor, to_shift, shift)
+HR_grid = creation_HR_grid(rescale(rgb2gray(io.imread(list_image_input_dir[0])), 1), upscale_factor, to_shift, shift)
+im_sr = PG_method(HR_grid, rescale(rgb2gray(io.imread(list_image_input_dir[0])), 1), 0.5, upscale_factor, 10)
 plt.figure()
-plt.subplot(211)
+plt.subplot(221)
+plt.imshow(rgb2gray(io.imread(list_image_input_dir[0])), 'gray')
+plt.title('Groundtruth')
+plt.subplot(222)
 plt.imshow(rescale(rgb2gray(io.imread(list_image_input_dir[0])), 1/8), 'gray')
-plt.subplot(212)
+plt.title('LR image (im ref)')
+plt.subplot(223)
+plt.imshow(HR_grid, 'gray')
+plt.title('HR grid')
+plt.subplot(224)
 plt.imshow(im_sr, 'gray')
+plt.title('SR image')
 plt.show()
 plt.close()
+
