@@ -25,13 +25,13 @@ args = parser.parse_args()
 # Parameters
 upscale_factor = 4
 it = 100
-sigma = 0.5
+sigma = 0.4
 
 # Path
 device = args.device
 scene = args.scene
 input_dir = os.path.join('fig', device, scene)
-output_dir = 'output/up_'+str(upscale_factor)+'_it_'+str(it)+'_sigma_'+str(sigma)
+output_dir = os.path.join('output', device, scene, 'up_'+str(upscale_factor)+'_it_'+str(it)+'_sigma_'+str(sigma))
 
 
 list_image_input_dir = [os.path.join(input_dir, i) for i in os.listdir(input_dir) if not i.startswith('.')]
@@ -173,14 +173,14 @@ print(shift)
 print("at least 1 shift :", count_or, "| valid shifts :", count_val)
 
 HR_grid = creation_HR_grid(im_ref, upscale_factor, to_shift, shift)
-im_sr = PG_method(HR_grid, im_ref, sigma, upscale_factor, it)
 
 if not(os.path.exists(output_dir)):
     os.makedirs(output_dir)
-
 io.imsave(os.path.join(output_dir,'groundtruth.png'), rgb2gray(io.imread(list_image_input_dir[0])))
 io.imsave(os.path.join(output_dir,'lr_image.png'), im_ref)
 io.imsave(os.path.join(output_dir,'hr_grid.png'), HR_grid)
+
+im_sr = PG_method(HR_grid, im_ref, sigma, upscale_factor, it)
 io.imsave(os.path.join(output_dir,'sr_image.png'), im_sr)
 
 plt.figure()
