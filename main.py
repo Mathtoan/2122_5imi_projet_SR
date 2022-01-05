@@ -1,14 +1,11 @@
-import numpy as np
+import os
 
+import matplotlib.pyplot as plt
+import numpy as np
+from scipy.ndimage import shift
 from skimage import io
 from skimage.color import rgb2gray
 from skimage.registration import phase_cross_correlation
-
-from scipy.ndimage import shift
-
-import matplotlib.pyplot as plt
-
-import os
 
 # Path
 device = 'iPhone13Pro'
