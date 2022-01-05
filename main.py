@@ -1,3 +1,4 @@
+import argparse
 import os
 
 import matplotlib.pyplot as plt
@@ -8,9 +9,18 @@ from skimage.color import rgb2gray
 from skimage.registration import phase_cross_correlation
 from skimage.transform import rescale
 
+#Parser
+parser = argparse.ArgumentParser(description='Super Resolution')
+parser.add_argument('-d', '--device', type=str, default='iPhone13Pro',
+                    help='Choose the device', choices='iPhone13Pro')
+parser.add_argument('-s', '--scene', type=str, default='scene1',
+                    help='Choose the scene', choices='scene1')
+
+args = parser.parse_args()
+
 # Path
-device = 'iPhone13Pro'
-scene = 'scene1'
+device = args.device
+scene = args.scene
 input_dir = os.path.join('fig', device, scene)
 
 
