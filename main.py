@@ -3,6 +3,7 @@ import numpy as np
 from skimage import io
 from skimage.color import rgb2gray
 from skimage.registration import phase_cross_correlation
+from skimage.transform import rescale
 
 from scipy.ndimage import shift
 
@@ -24,7 +25,7 @@ upscale_factor = 4
 # Registration and SR grid creation
 for idx_ref in range(len(list_image_input_dir)):
     print('######### idx_ref =', idx_ref, '#########')
-    im_ref = rgb2gray(io.imread(list_image_input_dir[idx_ref]))
+    im_ref = rescale(rgb2gray(io.imread(list_image_input_dir[idx_ref])), 0.25)
     lr_size = im_ref.shape
     sr_size = [lr_size[0]*upscale_factor, lr_size[1]*upscale_factor]
 
@@ -33,7 +34,7 @@ for idx_ref in range(len(list_image_input_dir)):
     count_and = 0
     for i in range(len(list_image_input_dir)):
         if i != idx_ref:
-            im_to_register = rgb2gray(io.imread(list_image_input_dir[i]))
+            im_to_register = rescale(rgb2gray(io.imread(list_image_input_dir[i])), 0.25)
 
             shifted, error, diffphase = phase_cross_correlation(im_ref, im_to_register,upsample_factor=upscale_factor)
             if shifted[0] != int(shifted[0]) or shifted[1] != int(shifted[1]):
