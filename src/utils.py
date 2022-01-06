@@ -27,8 +27,6 @@ def computing_regitration(list_image_input_dir, idx_ref, upscale_factor, display
     im_ref = rescale(rgb2gray(io.imread(list_image_input_dir[idx_ref])), 1/upscale_factor)
     registration_shifts = []
     im_to_register_list = []
-    count_val = 0
-    count_or = 0
     for i in range(len(list_image_input_dir)):
         if i != idx_ref:
             im_to_register = rescale(rgb2gray(io.imread(list_image_input_dir[i])), 1/upscale_factor)
@@ -54,7 +52,6 @@ def computing_regitration(list_image_input_dir, idx_ref, upscale_factor, display
                 if not(shifted.tolist() in registration_shifts):
                     registration_shifts.append(shifted.tolist())
                     im_to_register_list.append(im_to_register)
-                    count_val += 1
             print(i, shifted)
     print(registration_shifts)
     print("valid shifts :", len(im_to_register_list))
