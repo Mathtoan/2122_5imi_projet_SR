@@ -25,7 +25,11 @@ args = parser.parse_args()
 # Parameters
 upscale_factor = 4
 it = 100
-sigma = 0.4
+sigma = 0.5
+
+print('RUNNING PARAMETER', 
+      '\nUpscale factor :', upscale_factor,
+      '\nNumber of iteration of Papoulis-Gerchberg :', it)
 
 # Path
 device = args.device
@@ -39,10 +43,11 @@ list_image_input_dir.sort()
 
 def display_progression(it, it_total):
     progression = (it/it_total) * 100
+    progress_bar = '['+'-'*(int(progression)//5)+' '*(int(100/5)-int(progression)//5)+']'
     if progression < 100:
-        print('progression : %.2f%%' %(progression), end="\r")
+        print('Loading '+progress_bar+' %.2f%%' %(progression), end="\r")
     else:
-        print('progression : %.2f%%' %(progression))
+        print('Loading '+progress_bar+' %.2f%%' %(progression))
         print('done')
 
 def creation_HR_grid(im_ref, upscale_factor, im_to_shift, shift):
@@ -92,7 +97,7 @@ def PG_method(HR_grid, im_ref, sigma, upscale_factor, it):
 
                 im_sr[idx_h_ref][idx_w_ref] = im_ref[h][w]
         
-        display_progression(i, it)
+        display_progression(i+1, it)
     global_time = time.time() - global_start_time
     print('Execution time : %0.2f' % (global_time))
     return im_sr
@@ -100,79 +105,51 @@ def PG_method(HR_grid, im_ref, sigma, upscale_factor, it):
 
 
 # Registration and SR grid creation
+def computing_regitration(list_image_input_dir, idx_ref, display=False):
+    print('######### idx_ref =', idx_ref, '#########')
+    im_ref = rescale(rgb2gray(io.imread(list_image_input_dir[idx_ref])), 1/upscale_factor)
+    registration_shifts = []
+    im_to_register_list = []
+    count_val = 0
+    count_or = 0
+    for i in range(len(list_image_input_dir)):
+        if i != idx_ref:
+            im_to_register = rescale(rgb2gray(io.imread(list_image_input_dir[i])), 1/upscale_factor)
+
+            shifted, _, _ = phase_cross_correlation(im_ref, im_to_register,upsample_factor=upscale_factor)
+
+            if display:
+                registered_im = shift(im_to_register, shift=(shifted[0], shifted[1]), mode='constant')
+                plt.figure()
+                plt.subplot(221)
+                plt.imshow(im_ref, 'gray')
+                plt.title('Image de reference')
+                plt.subplot(222)
+                plt.imshow(im_to_register, 'gray')
+                plt.title('Image a recaler')
+                plt.subplot(223)
+                plt.imshow(registered_im, 'gray')
+                plt.title('Image recalee')
+                plt.show()
+                plt.close()
+
+            if shifted[0] != int(shifted[0]) or shifted[1] != int(shifted[1]):
+                if not(shifted.tolist() in shift):
+                    registration_shifts.append(shifted.tolist())
+                    im_to_register_list.append(im_to_register)
+                    count_val += 1
+            print(i, shifted)
+    print(shift)
+    print("valid shifts :", len(im_to_register_list))
+    return im_ref, im_to_register_list, registration_shifts
+
 # for idx_ref in range(len(list_image_input_dir)):
-#     print('######### idx_ref =', idx_ref, '#########')
-#     im_ref = rescale(rgb2gray(io.imread(list_image_input_dir[idx_ref])), 1/8)
-#     shift = []
-#     to_shift = {}
-#     count_val = 0
-#     count_or = 0
-#     for i in range(len(list_image_input_dir)):
-#         if i != idx_ref:
-#             im_to_register = rescale(rgb2gray(io.imread(list_image_input_dir[i])), 1/8)
-
-#             shifted, error, diffphase = phase_cross_correlation(im_ref, im_to_register,upsample_factor=upscale_factor)
-#             # registered_im = shift(im_to_register, shift=(shifted[0], shifted[1]), mode='constant')
-
-#             # plt.figure()
-#             # plt.subplot(221)
-#             # plt.imshow(im_ref, 'gray')
-#             # plt.title('Image de reference')
-#             # plt.subplot(222)
-#             # plt.imshow(im_to_register, 'gray')
-#             # plt.title('Image a recaler')
-#             # plt.subplot(223)
-#             # plt.imshow(registered_im, 'gray')
-#             # plt.title('Image recalee')
-#             # plt.show()
-#             # plt.close()
-#             if shifted[0] != int(shifted[0]) or shifted[1] != int(shifted[1]):
-#                 count_or += 1
-#                 if not(shifted.tolist() in shift):
-#                     shift.append(shifted.tolist())
-#                     to_shift[list_image_input_dir[i]] = im_to_register
-#                     count_val += 1
-#             print(i, shifted)
-#     print(shift)
-#     print("at least 1 shift :", count_or, "| valid shifts :", count_val)
+#     im_ref, im_to_register_list, registration_shifts = computing_regitration(list_image_input_dir, idx_ref)
 
 idx_ref = 9
-print('######### idx_ref =', idx_ref, '#########')
-im_ref = rescale(rgb2gray(io.imread(list_image_input_dir[idx_ref])), 1/upscale_factor)
-shift = []
-to_shift = []
-count_val = 0
-count_or = 0
-for i in range(len(list_image_input_dir)):
-    if i != idx_ref:
-        im_to_register = rescale(rgb2gray(io.imread(list_image_input_dir[i])), 1/upscale_factor)
+im_ref, im_to_register_list, registration_shifts = computing_regitration(list_image_input_dir, idx_ref)
 
-        shifted, error, diffphase = phase_cross_correlation(im_ref, im_to_register,upsample_factor=upscale_factor)
-        # registered_im = shift(im_to_register, shift=(shifted[0], shifted[1]), mode='constant')
-
-        # plt.figure()
-        # plt.subplot(221)
-        # plt.imshow(im_ref, 'gray')
-        # plt.title('Image de reference')
-        # plt.subplot(222)
-        # plt.imshow(im_to_register, 'gray')
-        # plt.title('Image a recaler')
-        # plt.subplot(223)
-        # plt.imshow(registered_im, 'gray')
-        # plt.title('Image recalee')
-        # plt.show()
-        # plt.close()
-        if shifted[0] != int(shifted[0]) or shifted[1] != int(shifted[1]):
-            count_or += 1
-            if not(shifted.tolist() in shift):
-                shift.append(shifted.tolist())
-                to_shift.append(im_to_register)
-                count_val += 1
-        print(i, shifted)
-print(shift)
-print("at least 1 shift :", count_or, "| valid shifts :", count_val)
-
-HR_grid = creation_HR_grid(im_ref, upscale_factor, to_shift, shift)
+HR_grid = creation_HR_grid(im_ref, upscale_factor, im_to_register_list, registration_shifts)
 
 if not(os.path.exists(output_dir)):
     os.makedirs(output_dir)
