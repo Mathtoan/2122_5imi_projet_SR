@@ -64,7 +64,7 @@ def creation_HR_grid(im_ref, upscale_factor, im_to_register_list, registration_s
     print('---- Creation HR grid ----')
     global_start_time = time.time()
     lr_size = im_ref.shape
-    if color=='grey':
+    if color=='gray':
         sr_size = [lr_size[0]*upscale_factor, lr_size[1]*upscale_factor]
     elif color=='rgb':
         sr_size = [lr_size[0]*upscale_factor, lr_size[1]*upscale_factor, 3]

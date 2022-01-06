@@ -15,8 +15,8 @@ parser.add_argument('-i', '--iterations', type=int, default='100',
                     help='Choose the number of iterations')
 parser.add_argument('-o', '--sigma', type=float, default='0.4',
                     help='Choose the value of sigma')
-parser.add_argument('-c', '--color', type=str, default='grey',
-                    help='Choose the color of the output image', choices=['grey','rgb'])
+parser.add_argument('-c', '--color', type=str, default='gray',
+                    help='Choose the color of the output image', choices=['gray','rgb'])
 
 args = parser.parse_args()
 
@@ -57,8 +57,8 @@ io.imsave(os.path.join(output_dir,'hr_grid.png'), HR_grid)
 im_sr = PG_method(HR_grid, im_ref, sigma, upscale_factor, it)
 io.imsave(os.path.join(output_dir,'sr_image.png'), im_sr)
 
-if color=='grey':
-    colmap='grey'
+if color=='gray':
+    colmap='gray'
 elif color=='rgb':
     colmap='viridis'
 else:
