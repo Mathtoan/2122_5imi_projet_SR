@@ -73,7 +73,7 @@ io.imsave(os.path.join(output_dir,'groundtruth.png'), im_groundtruth)
 io.imsave(os.path.join(output_dir,'lr_image.png'), im_ref)
 
 #%% Papoulis-Gerchberg method
-im_sr = PG_method(HR_grid, im_ref, sigma, upscale_factor, it)
+im_sr = PG_method(HR_grid, im_ref, sigma, upscale_factor, it, display_filter=True)
 io.imsave(os.path.join(output_dir,'sr_image_new.png'), im_sr.real)
 
 if color=='gray':

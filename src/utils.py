@@ -103,7 +103,7 @@ def creation_HR_grid(im_ref, upscale_factor, im_to_register_list, registration_s
     print('Execution time : %0.2fs' % (global_time))
     return im_sr
 
-def PG_method(HR_grid, im_ref, sigma, upscale_factor, it):
+def PG_method(HR_grid, im_ref, sigma, upscale_factor, it, display_filter=False):
     print('---- Papoulis–Gerchberg method (real)----')
     global_start_time = time.time()
     lr_size = im_ref.shape
@@ -111,6 +111,11 @@ def PG_method(HR_grid, im_ref, sigma, upscale_factor, it):
     sr_size = HR_grid.shape
     print(HR_grid.shape)
     gauss_filter = gaussian_2d(sr_size[0], sr_size[1], sigma, sigma)
+    if display_filter:
+        plt.figure()
+        plt.imshow(gauss_filter, cmap='gray')
+        plt.show()
+        plt.close()
     for i in range(it):
 
         fft_im_sr = fftshift(fft2(im_sr))
