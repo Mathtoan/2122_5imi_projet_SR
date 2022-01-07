@@ -110,13 +110,13 @@ def PG_method(HR_grid, im_ref, sigma, upscale_factor, it):
     im_sr = HR_grid
     sr_size = HR_grid.shape
     print(HR_grid.shape)
+    gauss_filter = gaussian_2d(sr_size[0], sr_size[1], sigma, sigma)
     for i in range(it):
 
         fft_im_sr = fftshift(fft2(im_sr))
-        gauss_filter = gaussian_2d(sr_size[0], sr_size[1], sigma, sigma)
         fft_im_sr = fft_im_sr * gauss_filter
         im_sr = ifft2(ifftshift(fft_im_sr))
-        
+
         # im_sr = gaussian(im_sr, sigma)
         for h in range(lr_size[0]):
             for w in range(lr_size[1]):
