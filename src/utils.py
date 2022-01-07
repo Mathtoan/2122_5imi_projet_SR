@@ -2,9 +2,10 @@ import shutil
 import time
 
 import numpy as np
+from numpy.fft import fft2, ifft2, fftshift, ifftshift
 import matplotlib.pyplot as plt
 
-from scipy.fftpack import fft2, ifft2
+from scipy.signal import convolve2d
 from scipy.ndimage import shift
 from skimage import io
 from skimage.color import rgb2gray
@@ -21,6 +22,18 @@ def display_progression(it, it_total):
     else:
         print('Loading '+progress_bar+' %.2f%%' %(progression))
         print('done')
+
+def gaussian_2d(h, w,sigma_x, sigma_y, meshgrid=False):
+    # 'Normalized [-1,1] meshgrids' 
+    u = np.linspace(-(w-1)/2.,(w-1)/2., w)/((w-1)/2)
+    v = np.linspace(-(h-1)/2.,(h-1)/2., h)/((h-1)/2)
+    U,V = np.meshgrid(u,v)
+
+    H = np.exp(-0.5*((U/sigma_x)**2+(V/sigma_y)**2))/(sigma_x*sigma_y*np.sqrt(2*np.pi))
+    if not(meshgrid):
+        return H
+    else:
+        return U, V, H
 
 def computing_regitration(list_image_input_dir, idx_ref, upscale_factor, display=False):
     print('######### idx_ref =', idx_ref, '#########')
@@ -90,19 +103,26 @@ def creation_HR_grid(im_ref, upscale_factor, im_to_register_list, registration_s
     print('Execution time : %0.2fs' % (global_time))
     return im_sr
 
-def PG_method(HR_grid, im_ref, sigma, upscale_factor, it):
-    print('---- Papoulis–Gerchberg method ----')
+def PG_method(HR_grid, im_ref, sigma, upscale_factor, it, display_filter=False):
+    print('---- Papoulis–Gerchberg method (real)----')
     global_start_time = time.time()
     lr_size = im_ref.shape
     im_sr = HR_grid
+    sr_size = HR_grid.shape
     print(HR_grid.shape)
+    gauss_filter = gaussian_2d(sr_size[0], sr_size[1], sigma, sigma)
+    if display_filter:
+        plt.figure()
+        plt.imshow(gauss_filter, cmap='gray')
+        plt.show()
+        plt.close()
     for i in range(it):
 
-        # fft_im_sr = fft2(im_sr)
-        # print(fft_im_sr.shape)
-        # fft_im_sr = gaussian(fft_im_sr, sigma)
-        # im_sr = ifft2(fft_im_sr)
-        im_sr = gaussian(im_sr, sigma)
+        fft_im_sr = fftshift(fft2(im_sr))
+        fft_im_sr = fft_im_sr * gauss_filter
+        im_sr = ifft2(ifftshift(fft_im_sr))
+
+        # im_sr = gaussian(im_sr, sigma)
         for h in range(lr_size[0]):
             for w in range(lr_size[1]):
                 idx_h_ref = h*upscale_factor+int(upscale_factor/2)
