@@ -54,6 +54,14 @@ for i in range(len(matches)):
 homography, mask = cv2.findHomography(p1, p2, cv2.RANSAC)
 print(homography)
 
+for i in range(height):
+    for j in range(width):
+        x_prime = homography[0][0]*i + homography[0][1]*j + homography[0][2]
+        y_prime = homography[1][0]*i + homography[1][1]*j + homography[1][2]
+        shift_x = x_prime - i
+        shift_y = y_prime - j
+    print("shift x = " + str(shift_x) + ", shift y = ", str(shift_y))
+
 # Use this matrix to transform the
 # colored image wrt the reference image.
 transformed_img = cv2.warpPerspective(img1_color,
