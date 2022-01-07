@@ -13,9 +13,10 @@ from skimage.color import rgb2gray
 from skimage.filters import gaussian
 from skimage.registration import phase_cross_correlation
 from skimage.transform import rescale
+from tqdm import tqdm
 
 
-def display_progression(it, it_total):
+def display_progression(it, it_total): # Old, should use tqdm instead
     progression = (it/it_total) * 100
     progress_bar = '['+'-'*(int(progression)//5)+' '*(int(100/5)-int(progression)//5)+']'
     if progression < 100:
@@ -90,8 +91,8 @@ def creation_HR_grid(im_ref, upscale_factor, im_to_register_list, registration_s
         exit()
     im_sr = np.zeros(sr_size)
 
-    for h in range(lr_size[0]):
-        for w in range(lr_size[1]):
+    for h in tqdm(range(lr_size[0]), desc='Main loop'):
+        for w in tqdm(range(lr_size[1]), desc=f'Line {h}', leave=False):
     
             idx_h_ref = h*upscale_factor+int(upscale_factor/2)
             idx_w_ref = w*upscale_factor+int(upscale_factor/2)
@@ -105,7 +106,6 @@ def creation_HR_grid(im_ref, upscale_factor, im_to_register_list, registration_s
                 if idx_h > 0 and idx_h < sr_size[0] and idx_w > 0 and idx_w < sr_size[1]:
                     im_sr[int(idx_h)][int(idx_w)] = im_to_register_list[k][h][w]
             
-            display_progression(h*lr_size[1]+w+1, lr_size[0]*lr_size[1])
     global_time = time.time() - global_start_time
     print('Execution time : %0.2fs' % (global_time))
     return im_sr
@@ -118,7 +118,7 @@ def PG_method(HR_grid, im_ref, sigma, upscale_factor, it, out_filter=False):
     sr_size = HR_grid.shape
     print(HR_grid.shape)
     gauss_filter = gaussian_2d(sr_size[0], sr_size[1], sigma, sigma)
-    for i in range(it):
+    for i in tqdm(range(it), desc='Main loop'):
 
         fft_im_sr = fftshift(fft2(im_sr))
         fft_im_sr = fft_im_sr * gauss_filter
@@ -132,7 +132,6 @@ def PG_method(HR_grid, im_ref, sigma, upscale_factor, it, out_filter=False):
 
                 im_sr[idx_h_ref][idx_w_ref] = im_ref[h][w]
         
-        display_progression(i+1, it)
     global_time = time.time() - global_start_time
     print('Execution time : %0.2f' % (global_time))
     if not(out_filter):
