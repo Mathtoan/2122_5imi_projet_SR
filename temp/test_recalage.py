@@ -22,12 +22,20 @@ def shifts_calculation(im_ref, im_recal, display=False):
     homography, mask = cv2.findHomography(p1, p2, cv2.RANSAC)
     shift_x = np.zeros([h,w])
     shift_y = np.zeros([h,w])
+    recal = np.zeros([h,w])
+
     for i in range(h):
         for j in range(w):
             x_prime = homography[0][0]*i + homography[0][1]*j + homography[0][2]
             y_prime = homography[1][0]*i + homography[1][1]*j + homography[1][2]
             shift_x[i][j] = x_prime - i
             shift_y[i][j] = y_prime - j
+            if int(x_prime)>0 and int(x_prime)<h and int(y_prime)>0 and int(y_prime)<w:
+                recal[int(x_prime)][int(y_prime)] = im_recal[i][j]
+
+    plt.figure()
+    plt.imshow(recal, 'gray')
+    plt.show()
     
     if(display):
         plt.figure()
@@ -47,8 +55,8 @@ def shifts_calculation(im_ref, im_recal, display=False):
 
 ##Recalage image 1
 # Open the image files.
-img1_color = cv2.imread("im_test_1.jpg") # Image to be aligned.
-img2_color = cv2.imread("im_ref.jpg") # Reference image.
+img1_color = cv2.imread("temp/im_test_1.jpg") # Image to be aligned.
+img2_color = cv2.imread("temp/im_ref.jpg") # Reference image.
 
 # plt.figure()
 # plt.imshow(img1_color)
@@ -58,9 +66,17 @@ img2_color = cv2.imread("im_ref.jpg") # Reference image.
 img1 = cv2.cvtColor(img1_color, cv2.COLOR_BGR2GRAY)
 img2 = cv2.cvtColor(img2_color, cv2.COLOR_BGR2GRAY)
 
-sx,sy = shifts_calculation(img2,img1, True)
+sx,sy = shifts_calculation(img2,img1)
+h,w = img1.shape
+im_recalee = np.zeros([h,w])
+for i in range(h):
+    for j in range(w):
+        if i+sx[i,j]>0 and i+sx[i,j]<h and j+sy[i,j]>0 and j+sy[i,j]<w: 
+            im_recalee[i,j] = img1[int(i+sx[i,j]),int(j+sy[i,j])]
 
-
+plt.figure()
+plt.imshow(im_recalee, 'gray')
+plt.show()
 
 exit(1)
 
