@@ -1,5 +1,6 @@
 import shutil
 import time
+import os
 
 import numpy as np
 from numpy.fft import fft2, ifft2, fftshift, ifftshift
@@ -22,14 +23,20 @@ def display_progression(it, it_total):
     else:
         print('Loading '+progress_bar+' %.2f%%' %(progression))
         print('done')
-
+def save_im_new(path, im):
+    if not(os.path.exists(path)):
+        print('saving', path)
+        io.imsave(path, im)
+    else:
+        print(path, 'already saved')
+# psf2otf
 def gaussian_2d(h, w,sigma_x, sigma_y, meshgrid=False):
     # 'Normalized [-1,1] meshgrids' 
     u = np.linspace(-(w-1)/2.,(w-1)/2., w)/((w-1)/2)
     v = np.linspace(-(h-1)/2.,(h-1)/2., h)/((h-1)/2)
     U,V = np.meshgrid(u,v)
 
-    H = np.exp(-0.5*((U/sigma_x)**2+(V/sigma_y)**2))/(sigma_x*sigma_y*np.sqrt(2*np.pi))
+    H = np.exp(-0.5*((U/sigma_x)**2+(V/sigma_y)**2)) #/(np.sqrt(2*np.pi*sigma_x*sigma_y))
     if not(meshgrid):
         return H
     else:
@@ -103,7 +110,7 @@ def creation_HR_grid(im_ref, upscale_factor, im_to_register_list, registration_s
     print('Execution time : %0.2fs' % (global_time))
     return im_sr
 
-def PG_method(HR_grid, im_ref, sigma, upscale_factor, it, display_filter=False):
+def PG_method(HR_grid, im_ref, sigma, upscale_factor, it, out_filter=False):
     print('---- Papoulis–Gerchberg method (real)----')
     global_start_time = time.time()
     lr_size = im_ref.shape
@@ -111,11 +118,6 @@ def PG_method(HR_grid, im_ref, sigma, upscale_factor, it, display_filter=False):
     sr_size = HR_grid.shape
     print(HR_grid.shape)
     gauss_filter = gaussian_2d(sr_size[0], sr_size[1], sigma, sigma)
-    if display_filter:
-        plt.figure()
-        plt.imshow(gauss_filter, cmap='gray')
-        plt.show()
-        plt.close()
     for i in range(it):
 
         fft_im_sr = fftshift(fft2(im_sr))
@@ -133,4 +135,7 @@ def PG_method(HR_grid, im_ref, sigma, upscale_factor, it, display_filter=False):
         display_progression(i+1, it)
     global_time = time.time() - global_start_time
     print('Execution time : %0.2f' % (global_time))
-    return im_sr
+    if not(out_filter):
+        return im_sr
+    else:
+        return im_sr, gauss_filter
