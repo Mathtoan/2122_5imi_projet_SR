@@ -60,7 +60,7 @@ for i in range(height):
         y_prime = homography[1][0]*i + homography[1][1]*j + homography[1][2]
         shift_x = x_prime - i
         shift_y = y_prime - j
-    print("shift x = " + str(shift_x) + ", shift y = ", str(shift_y))
+    print("shift x = " + str(shift_x) + " et shift y = ", str(shift_y))
 
 # Use this matrix to transform the
 # colored image wrt the reference image.
