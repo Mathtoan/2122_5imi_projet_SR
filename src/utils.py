@@ -110,9 +110,13 @@ def creation_HR_grid(im_ref, upscale_factor, im_to_register_list, registration_s
     print('Execution time : %0.2fs' % (global_time))
     return im_sr
 
-def PG_method(HR_grid, im_ref, sigma, upscale_factor, it, out_filter=False):
+def PG_method(HR_grid, im_ref, sigma, upscale_factor, it, out_filter=False, save_every=False, save_dir=None):
+    if save_every:
+        if save_dir==None:
+            print('A save path should be input')
+            exit()
     print('---- Papoulis–Gerchberg method (real)----')
-    global_start_time = time.time()
+    # global_start_time = time.time()
     lr_size = im_ref.shape
     im_sr = HR_grid
     sr_size = HR_grid.shape
@@ -132,8 +136,14 @@ def PG_method(HR_grid, im_ref, sigma, upscale_factor, it, out_filter=False):
 
                 im_sr[idx_h_ref][idx_w_ref] = im_ref[h][w]
         
-    global_time = time.time() - global_start_time
-    print('Execution time : %0.2f' % (global_time))
+        if save_every and (i+1)%100 == 0:
+            save_path = os.path.join(save_dir, 'it_'+str(i+1))
+            if not(os.path.exists(save_path)):
+                os.makedirs(save_path)
+            save_im_new(os.path.join(save_path,'sr_image_new.png'), im_sr.real)
+        
+    # global_time = time.time() - global_start_time
+    # print('Execution time : %0.2f' % (global_time))
     if not(out_filter):
         return im_sr
     else:

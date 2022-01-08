@@ -24,6 +24,9 @@ parser.add_argument('-c', '--color', type=str, default='gray',
                     help='Choose the color of the output image', choices=['gray','rgb'])
 parser.add_argument('-r', '--ref', type=int, default='9',
                     help='Choose the reference image')
+parser.add_argument('-S','--savesteps', action='store_true',
+                    help='Save PG method step every 100')
+
 
 
 args = parser.parse_args()
@@ -35,6 +38,7 @@ it = args.iterations
 sigma = args.sigma
 color = args.color
 idx_ref = args.ref
+savesteps = args.savesteps
 
 print('RUNNING PARAMETER', 
       '\nUpscale factor :', upscale_factor,
@@ -81,7 +85,10 @@ save_im_new(os.path.join(o_up_dir,'groundtruth.png'), im_groundtruth)
 save_im_new(os.path.join(o_up_dir,'lr_image_'+str(idx_ref)+'.png'), im_ref)
 
 #%% Papoulis-Gerchberg method
-im_sr,H = PG_method(HR_grid, im_ref, sigma, upscale_factor, it, out_filter=True)
+if not(savesteps):
+    im_sr,H = PG_method(HR_grid, im_ref, sigma, upscale_factor, it, out_filter=True)
+else:
+    im_sr,H = PG_method(HR_grid, im_ref, sigma, upscale_factor, it, out_filter=True, save_every=True, save_dir=o_sigma_dir)
 io.imsave(os.path.join(o_sigma_dir, 'filter.png'), H)
 io.imsave(os.path.join(o_it_dir,'sr_image_new.png'), im_sr.real)
 
