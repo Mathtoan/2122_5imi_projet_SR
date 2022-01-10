@@ -24,18 +24,16 @@ def shifts_calculation(im_ref, im_recal, display=False):
     shift_y = np.zeros([h,w])
     recal = np.zeros([h,w])
 
+    homography = np.linalg.inv(homography)
     for i in range(h):
         for j in range(w):
-            x_prime = homography[0][0]*i + homography[0][1]*j + homography[0][2]
-            y_prime = homography[1][0]*i + homography[1][1]*j + homography[1][2]
+            [x_prime, y_prime, _] = np.matmul(homography,[i,j,1])/np.matmul(homography[2],[i,j,1])
+            # x_prime = homography[0][0]*i + homography[0][1]*j + homography[0][2]
+            # y_prime = homography[1][0]*i + homography[1][1]*j + homography[1][2]
             shift_x[i][j] = x_prime - i
             shift_y[i][j] = y_prime - j
-            if int(x_prime)>0 and int(x_prime)<h and int(y_prime)>0 and int(y_prime)<w:
-                recal[int(x_prime)][int(y_prime)] = im_recal[i][j]
 
-    plt.figure()
-    plt.imshow(recal, 'gray')
-    plt.show()
+
     
     if(display):
         plt.figure()
@@ -48,8 +46,8 @@ def shifts_calculation(im_ref, im_recal, display=False):
         plt.title("Shifts selon y")
         plt.colorbar()
         plt.show()
-    return shift_x,shift_y
 
+    return shift_x,shift_y
 
 
 
@@ -67,16 +65,18 @@ img1 = cv2.cvtColor(img1_color, cv2.COLOR_BGR2GRAY)
 img2 = cv2.cvtColor(img2_color, cv2.COLOR_BGR2GRAY)
 
 sx,sy = shifts_calculation(img2,img1)
-h,w = img1.shape
+h,w = img2.shape
 im_recalee = np.zeros([h,w])
 for i in range(h):
     for j in range(w):
-        if i+sx[i,j]>0 and i+sx[i,j]<h and j+sy[i,j]>0 and j+sy[i,j]<w: 
-            im_recalee[i,j] = img1[int(i+sx[i,j]),int(j+sy[i,j])]
+        if i-sx[i,j]>0 and i-sx[i,j]<h and j-sy[i,j]>0 and j-sy[i,j]<w: 
+            im_recalee[i,j] = img1[int(i-sx[i,j]),int(j-sy[i,j])]
 
 plt.figure()
 plt.imshow(im_recalee, 'gray')
-plt.show()
+plt.imsave('temp/im_recalee.png', im_recalee, cmap='gray')
+# plt.show()
+# plt.close()
 
 exit(1)
 
@@ -129,7 +129,7 @@ for i in range(height):
         y_prime = homography[1][0]*i + homography[1][1]*j + homography[1][2]
         shift_x = x_prime - i
         shift_y = y_prime - j
-    print("shift x = " + str(shift_x) + " et shift y = ", str(shift_y))
+    # print("shift x = " + str(shift_x) + " et shift y = ", str(shift_y))
 
 # Use this matrix to transform the
 # colored image wrt the reference image.
@@ -137,6 +137,6 @@ transformed_img = cv2.warpPerspective(img1_color,
 					homography, (width, height))
 
 # Save the output.
-cv2.imwrite('im_1_recalee.jpg', transformed_img)
+plt.imsave('temp/im_1_recalee.jpg', transformed_img, cmap='gray')
 
 
