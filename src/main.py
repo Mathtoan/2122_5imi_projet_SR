@@ -81,9 +81,11 @@ HR_grid_txt_dir = os.path.join(o_up_dir, 'HR_grid_'+str(idx_ref)+'.txt')
 #     HR_grid = creation_HR_grid(im_ref, upscale_factor, im_to_register_list, registration_shifts, color)
 #     np.savetxt(HR_grid_txt_dir, HR_grid, fmt='%f')
 
-im_registered_list = computing_regitration_v2(im_ref, list_image_input_dir, idx_ref, upscale_factor, color)
-HR_grid = creation_HR_grid_v2(im_ref, upscale_factor, im_registered_list, color)
-np.savetxt(HR_grid_txt_dir, HR_grid, fmt='%f')
+# im_registered_list = computing_regitration_v2(im_ref, list_image_input_dir, idx_ref, upscale_factor, color)
+# HR_grid = creation_HR_grid_v2(im_ref, upscale_factor, im_registered_list, color)
+# np.savetxt(HR_grid_txt_dir, HR_grid, fmt='%f')
+
+HR_grid = creation_HR_grid_v2(im_ref, list_image_input_dir, idx_ref, upscale_factor, color)
 
 io.imsave(os.path.join(o_up_dir,'hr_grid_'+str(idx_ref)+'.png'), HR_grid)
 save_im_new(os.path.join(o_up_dir,'groundtruth.png'), im_groundtruth)

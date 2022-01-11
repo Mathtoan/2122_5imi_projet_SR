@@ -79,78 +79,55 @@ def computing_regitration(list_image_input_dir, idx_ref, upscale_factor, display
     print("valid shifts :", len(im_to_register_list))
     return im_ref, im_to_register_list, registration_shifts
 
-def computing_regitration_v2(im_ref, list_image_input_dir, idx_ref, upscale_factor, color, display=False):
-    print('######### idx_ref =', idx_ref, '#########')
-    im_registered_list = []
-    for i in range(len(list_image_input_dir)):
-        if i != idx_ref:
-            im_to_register = io.imread(list_image_input_dir[i])
-            if color=='gray':
-                im_to_register = rgb2gray(im_to_register)
-            # plt.imsave('rescaled.png',im_to_register)
-            im_to_register = rescale(im_to_register, 1/upscale_factor)
-            # im_to_register = rescale(im_to_register, upscale_factor)
-            # print(im_ref.shape, im_to_register.shape)
-            im_to_register_cv = img_as_ubyte(im_to_register)
-            im_ref_cv = img_as_ubyte(im_ref)
+def computing_regitration_v2(im_ref, im_to_register, upscale_factor, display=False):
+    
+    im_to_register_cv = img_as_ubyte(im_to_register)
+    im_ref_cv = img_as_ubyte(im_ref)
 
-            height, width = im_ref.shape
-            orb_detector = cv2.ORB_create(5000)
-            kp_recal, d_recal = orb_detector.detectAndCompute(im_to_register_cv, None)
-            kp_ref, d_ref = orb_detector.detectAndCompute(im_ref_cv, None)
-            matcher = cv2.BFMatcher(cv2.NORM_HAMMING, crossCheck = True)
-            matches = matcher.match(d_recal, d_ref)
-            matches = sorted(matches,key = lambda x: x.distance)
-            matches = matches[:int(len(matches)*0.9)]
-            no_of_matches = len(matches)
-            # print(no_of_matches)
-            p1 = np.zeros((no_of_matches, 2))
-            p2 = np.zeros((no_of_matches, 2))
-            for i in range(len(matches)):
-                p1[i, :] = kp_recal[matches[i].queryIdx].pt
-                p2[i, :] = kp_ref[matches[i].trainIdx].pt
-            homography, _ = cv2.findHomography(p1, p2, cv2.RANSAC)
+    height, width = im_ref.shape
+    orb_detector = cv2.ORB_create(5000)
+    kp_recal, d_recal = orb_detector.detectAndCompute(im_to_register_cv, None)
+    kp_ref, d_ref = orb_detector.detectAndCompute(im_ref_cv, None)
+    matcher = cv2.BFMatcher(cv2.NORM_HAMMING, crossCheck = True)
+    matches = matcher.match(d_recal, d_ref)
+    matches = sorted(matches,key = lambda x: x.distance)
+    matches = matches[:int(len(matches)*0.9)]
+    no_of_matches = len(matches)
+    # print(no_of_matches)
+    p1 = np.zeros((no_of_matches, 2))
+    p2 = np.zeros((no_of_matches, 2))
+    for i in range(len(matches)):
+        p1[i, :] = kp_recal[matches[i].queryIdx].pt
+        p2[i, :] = kp_ref[matches[i].trainIdx].pt
+    homography, _ = cv2.findHomography(p1, p2, cv2.RANSAC)
 
-            # im_to_register = rescale(im_to_register, upscale_factor)
+    # im_to_register = rescale(im_to_register, upscale_factor)
 
-            im_to_register_up = np.zeros([height*upscale_factor,width*upscale_factor])
-            for h in range(height):
-                for w in range(width):
-                    idx_h_ref = h*upscale_factor
-                    idx_w_ref = w*upscale_factor
-                    im_to_register_up[idx_h_ref][idx_w_ref] = im_to_register[h][w]
+    im_to_register_up = np.zeros([height*upscale_factor,width*upscale_factor])
+    for h in range(height):
+        for w in range(width):
+            idx_h_ref = h*upscale_factor
+            idx_w_ref = w*upscale_factor
+            im_to_register_up[idx_h_ref][idx_w_ref] = im_to_register[h][w]
 
-            registered_im = cv2.warpPerspective(im_to_register_up, homography, (width*upscale_factor, height*upscale_factor))
-            
-            # h,w = im_to_register.shape
-            # registered_im = np.zeros([h,w])
-            # for i in range(h):
-            #     for j in range(w):
-            #         [x_prime, y_prime, s] = np.matmul(homography,[i,j,1])/np.matmul(homography[2],[i,j,1])
-            #         x_prime = int(np.floor(x_prime))
-            #         y_prime = int(np.floor(y_prime))
-            #         if x_prime>0 and x_prime<h and y_prime>0 and y_prime<w:
-            #             registered_im[x_prime,y_prime] = im_to_register[i,j]
-            # registered_im = rescale(registered_im, upscale_factor)
+    registered_im = cv2.warpPerspective(im_to_register_up, homography, (width*upscale_factor, height*upscale_factor))
+    
 
-            if display:
-                plt.figure()
-                plt.subplot(221)
-                plt.imshow(im_ref, 'gray')
-                plt.title('Image de reference')
-                plt.subplot(222)
-                plt.imshow(im_to_register, 'gray')
-                plt.title('Image a recaler')
-                plt.subplot(223)
-                plt.imshow(registered_im, 'gray')
-                plt.title('Image recalee')
-                plt.show()
-                plt.close()
+    if display:
+        plt.figure()
+        plt.subplot(221)
+        plt.imshow(im_ref, 'gray')
+        plt.title('Image de reference')
+        plt.subplot(222)
+        plt.imshow(im_to_register, 'gray')
+        plt.title('Image a recaler')
+        plt.subplot(223)
+        plt.imshow(registered_im, 'gray')
+        plt.title('Image recalee')
+        plt.show()
+        plt.close()
 
-            im_registered_list.append(registered_im)
-            # plt.imsave('registered.png', registered_im)
-            # exit()
-    return im_registered_list
+    return registered_im
 
 def creation_HR_grid(im_ref, upscale_factor, im_to_register_list, registration_shifts, color):
     print('---- Creation HR grid ----')
@@ -184,7 +161,7 @@ def creation_HR_grid(im_ref, upscale_factor, im_to_register_list, registration_s
     print('Execution time : %0.2fs' % (global_time))
     return im_sr
 
-def creation_HR_grid_v2(im_ref, upscale_factor, im_registered_list, color):
+def creation_HR_grid_v2(im_ref, list_image_input_dir, idx_ref, upscale_factor, color):
     print('---- Creation HR grid ----')
     global_start_time = time.time()
     lr_size = im_ref.shape
@@ -206,9 +183,19 @@ def creation_HR_grid_v2(im_ref, upscale_factor, im_registered_list, color):
 
             im_sr[idx_h_ref][idx_w_ref] = im_ref[h][w]
 
-    for k in range(len(im_registered_list)):
-        # im_sr += im_registered_list[k]
-        im_sr[im_sr==0] = im_registered_list[k][im_sr==0]
+    for k in range(len(list_image_input_dir)):
+        if k != idx_ref:
+            print('######### idx_ref =', idx_ref, '#########')
+            im_to_register = io.imread(list_image_input_dir[k])
+            if color=='gray':
+                im_to_register = rgb2gray(im_to_register)
+            im_to_register = rescale(im_to_register, 1/upscale_factor)
+            registered_im = computing_regitration_v2(im_ref, im_to_register, upscale_factor)
+
+            # im_sr += im_registered_list[k]
+            im_sr[im_sr==0] = registered_im[im_sr==0]
+            plt.imsave('HR.png', im_sr, cmap='gray')
+            exit()
             
     global_time = time.time() - global_start_time
     print('Execution time : %0.2fs' % (global_time))
@@ -228,11 +215,14 @@ def PG_method(HR_grid, im_ref, sigma, upscale_factor, it, out_filter=False, save
     gauss_filter = gaussian_2d(sr_size[0], sr_size[1], sigma, sigma)
     for i in tqdm(range(it), desc='Main loop'):
 
-        im_sr[HR_grid>0]  = HR_grid[HR_grid>0]
-
         fft_im_sr = fftshift(fft2(im_sr))
         fft_im_sr = fft_im_sr * gauss_filter
         im_sr = ifft2(ifftshift(fft_im_sr))
+
+        im_sr[HR_grid>0] = HR_grid[HR_grid>0]
+        # max_val = np.amax(abs(im_sr))
+        # min_val = np.amin(abs(im_sr))
+        # im_sr = 255*(abs(im_sr) - min_val) / (max_val-min_val)
         
         if save_every and (i+1)%100 == 0:
             save_path = os.path.join(save_dir, 'it_'+str(i+1))
