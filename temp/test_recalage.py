@@ -28,8 +28,12 @@ def shifts_calculation(im_ref, im_recal, display=False):
     for i in range(h):
         for j in range(w):
             [x_prime, y_prime, _] = np.matmul(homography,[i,j,1])/np.matmul(homography[2],[i,j,1])
-            # x_prime = homography[0][0]*i + homography[0][1]*j + homography[0][2]
-            # y_prime = homography[1][0]*i + homography[1][1]*j + homography[1][2]
+            vec_to_normalize = [x_prime, y_prime, 1]
+            n = np.linalg.norm(vec_to_normalize)
+            if n != 0: 
+                vec_to_normalize =  vec_to_normalize / n
+                x_prime = vec_to_normalize[0]
+                y_prime = vec_to_normalize[1]
             shift_x[i][j] = x_prime - i
             shift_y[i][j] = y_prime - j
 
