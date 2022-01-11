@@ -25,13 +25,18 @@ def shifts_calculation(im_ref, im_recal, display=False):
     recal = np.zeros([h,w])
 
     homography = np.linalg.inv(homography)
+    print(homography)
     for i in range(h):
         for j in range(w):
-            [x_prime, y_prime, _] = np.matmul(homography,[i,j,1])/np.matmul(homography[2],[i,j,1])
-            # x_prime = homography[0][0]*i + homography[0][1]*j + homography[0][2]
-            # y_prime = homography[1][0]*i + homography[1][1]*j + homography[1][2]
+            [x_prime, y_prime, s] = np.matmul(homography,[i,j,1])/np.matmul(homography[2],[i,j,1])
+            x_prime = int(np.floor(x_prime))
+            y_prime = int(np.floor(y_prime))
+            if x_prime>0 and x_prime<h and y_prime>0 and y_prime<w:
+                recal[x_prime,y_prime] = im_recal[i,j]
+                # recal[i,j] = im_recal[x_prime,y_prime]
             shift_x[i][j] = x_prime - i
             shift_y[i][j] = y_prime - j
+    plt.imsave('temp/im_recalee.png', recal, cmap='gray')
 
 
     
@@ -65,6 +70,8 @@ img1 = cv2.cvtColor(img1_color, cv2.COLOR_BGR2GRAY)
 img2 = cv2.cvtColor(img2_color, cv2.COLOR_BGR2GRAY)
 
 sx,sy = shifts_calculation(img2,img1)
+exit(1)
+
 h,w = img2.shape
 im_recalee = np.zeros([h,w])
 for i in range(h):
@@ -78,7 +85,7 @@ plt.imsave('temp/im_recalee.png', im_recalee, cmap='gray')
 # plt.show()
 # plt.close()
 
-exit(1)
+
 
 
 
