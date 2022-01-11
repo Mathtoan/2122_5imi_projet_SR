@@ -111,9 +111,27 @@ def computing_regitration_v2(im_ref, list_image_input_dir, idx_ref, upscale_fact
                 p2[i, :] = kp_ref[matches[i].trainIdx].pt
             homography, _ = cv2.findHomography(p1, p2, cv2.RANSAC)
 
-            im_to_register = rescale(im_to_register, upscale_factor)
-            registered_im = cv2.warpPerspective(im_to_register, homography, (width*upscale_factor, height*upscale_factor))
-            # print(registered_im.shape)
+            # im_to_register = rescale(im_to_register, upscale_factor)
+
+            im_to_register_up = np.zeros([height*upscale_factor,width*upscale_factor])
+            for h in range(height):
+                for w in range(width):
+                    idx_h_ref = h*upscale_factor
+                    idx_w_ref = w*upscale_factor
+                    im_to_register_up[idx_h_ref][idx_w_ref] = im_to_register[h][w]
+
+            registered_im = cv2.warpPerspective(im_to_register_up, homography, (width*upscale_factor, height*upscale_factor))
+            
+            # h,w = im_to_register.shape
+            # registered_im = np.zeros([h,w])
+            # for i in range(h):
+            #     for j in range(w):
+            #         [x_prime, y_prime, s] = np.matmul(homography,[i,j,1])/np.matmul(homography[2],[i,j,1])
+            #         x_prime = int(np.floor(x_prime))
+            #         y_prime = int(np.floor(y_prime))
+            #         if x_prime>0 and x_prime<h and y_prime>0 and y_prime<w:
+            #             registered_im[x_prime,y_prime] = im_to_register[i,j]
+            # registered_im = rescale(registered_im, upscale_factor)
 
             if display:
                 plt.figure()
@@ -150,8 +168,8 @@ def creation_HR_grid(im_ref, upscale_factor, im_to_register_list, registration_s
     for h in tqdm(range(lr_size[0]), desc='Main loop'):
         for w in tqdm(range(lr_size[1]), desc=f'Line {h}', leave=False):
     
-            idx_h_ref = h*upscale_factor#+int(upscale_factor/2)
-            idx_w_ref = w*upscale_factor#+int(upscale_factor/2)
+            idx_h_ref = h*upscale_factor+int(upscale_factor/2)
+            idx_w_ref = w*upscale_factor+int(upscale_factor/2)
 
             im_sr[idx_h_ref][idx_w_ref] = im_ref[h][w]
 
@@ -189,7 +207,8 @@ def creation_HR_grid_v2(im_ref, upscale_factor, im_registered_list, color):
             im_sr[idx_h_ref][idx_w_ref] = im_ref[h][w]
 
     for k in range(len(im_registered_list)):
-        im_sr += im_registered_list[k]
+        # im_sr += im_registered_list[k]
+        im_sr[im_sr==0] = im_registered_list[k][im_sr==0]
             
     global_time = time.time() - global_start_time
     print('Execution time : %0.2fs' % (global_time))
@@ -209,11 +228,11 @@ def PG_method(HR_grid, im_ref, sigma, upscale_factor, it, out_filter=False, save
     gauss_filter = gaussian_2d(sr_size[0], sr_size[1], sigma, sigma)
     for i in tqdm(range(it), desc='Main loop'):
 
+        im_sr[HR_grid>0]  = HR_grid[HR_grid>0]
+
         fft_im_sr = fftshift(fft2(im_sr))
         fft_im_sr = fft_im_sr * gauss_filter
         im_sr = ifft2(ifftshift(fft_im_sr))
-
-        im_sr[HR_grid>0]  = HR_grid[HR_grid>0]
         
         if save_every and (i+1)%100 == 0:
             save_path = os.path.join(save_dir, 'it_'+str(i+1))

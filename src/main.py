@@ -66,24 +66,24 @@ list_image_input_dir.sort()
 im_groundtruth = io.imread(list_image_input_dir[idx_ref])
 if color=='gray':
     im_groundtruth = rgb2gray(im_groundtruth)
-# im_ref = rescale(im_groundtruth, 1/upscale_factor)
+im_ref = rescale(im_groundtruth, 1/upscale_factor)
 
 HR_grid_txt_dir = os.path.join(o_up_dir, 'HR_grid_'+str(idx_ref)+'.txt')
 
 # Load saved HR grid if already generated
-if os.path.exists(HR_grid_txt_dir):
-    print('Loading ', HR_grid_txt_dir)
-    HR_grid = np.loadtxt(HR_grid_txt_dir, dtype=float)
-    im_ref = rescale(rgb2gray(io.imread(list_image_input_dir[idx_ref])), 1/upscale_factor)
-    print(HR_grid.shape)
-else:
-    im_ref, im_to_register_list, registration_shifts = computing_regitration(list_image_input_dir, idx_ref, upscale_factor)
-    HR_grid = creation_HR_grid(im_ref, upscale_factor, im_to_register_list, registration_shifts, color)
-    np.savetxt(HR_grid_txt_dir, HR_grid, fmt='%f')
+# if os.path.exists(HR_grid_txt_dir):
+#     print('Loading ', HR_grid_txt_dir)
+#     HR_grid = np.loadtxt(HR_grid_txt_dir, dtype=float)
+#     im_ref = rescale(rgb2gray(io.imread(list_image_input_dir[idx_ref])), 1/upscale_factor)
+#     print(HR_grid.shape)
+# else:
+#     im_ref, im_to_register_list, registration_shifts = computing_regitration(list_image_input_dir, idx_ref, upscale_factor)
+#     HR_grid = creation_HR_grid(im_ref, upscale_factor, im_to_register_list, registration_shifts, color)
+#     np.savetxt(HR_grid_txt_dir, HR_grid, fmt='%f')
 
-# im_registered_list = computing_regitration_v2(im_ref, list_image_input_dir, idx_ref, upscale_factor, color)
-# HR_grid = creation_HR_grid_v2(im_ref, upscale_factor, im_registered_list, color)
-# np.savetxt(HR_grid_txt_dir, HR_grid, fmt='%f')
+im_registered_list = computing_regitration_v2(im_ref, list_image_input_dir, idx_ref, upscale_factor, color)
+HR_grid = creation_HR_grid_v2(im_ref, upscale_factor, im_registered_list, color)
+np.savetxt(HR_grid_txt_dir, HR_grid, fmt='%f')
 
 io.imsave(os.path.join(o_up_dir,'hr_grid_'+str(idx_ref)+'.png'), HR_grid)
 save_im_new(os.path.join(o_up_dir,'groundtruth.png'), im_groundtruth)
