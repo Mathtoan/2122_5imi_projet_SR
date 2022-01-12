@@ -93,17 +93,17 @@ def computing_regitration(list_image_input_dir, idx_ref, upscale_factor, display
 
 def computing_regitration_v2(im_ref, im_to_register, upscale_factor, display=False):
     
+    height, width = im_ref.shape
     im_to_register_cv = img_as_ubyte(im_to_register)
     im_ref_cv = img_as_ubyte(im_ref)
 
-    height, width = im_ref.shape
     orb_detector = cv2.ORB_create(5000)
     kp_recal, d_recal = orb_detector.detectAndCompute(im_to_register_cv, None)
     kp_ref, d_ref = orb_detector.detectAndCompute(im_ref_cv, None)
     matcher = cv2.BFMatcher(cv2.NORM_HAMMING, crossCheck = True)
     matches = matcher.match(d_recal, d_ref)
     matches = sorted(matches,key = lambda x: x.distance)
-    matches = matches[:int(len(matches)*0.9)]
+    # matches = matches[:int(len(matches)*0.9)]
     no_of_matches = len(matches)
     # print(no_of_matches)
     p1 = np.zeros((no_of_matches, 2))
@@ -111,9 +111,27 @@ def computing_regitration_v2(im_ref, im_to_register, upscale_factor, display=Fal
     for i in range(len(matches)):
         p1[i, :] = kp_recal[matches[i].queryIdx].pt
         p2[i, :] = kp_ref[matches[i].trainIdx].pt
-    homography, _ = cv2.findHomography(p1, p2, cv2.RANSAC) # confidence level to check
-
-    # im_to_register = rescale(im_to_register, upscale_factor)
+    homography, _ = cv2.findHomography(p1, p2, cv2.RANSAC)
+    
+    # im_to_register_cv = im_to_register.reshape((-1,1,2)).astype('float32')
+    # im_ref_cv = im_ref.reshape((-1,1,2)).astype('float32')
+    
+    # homography, _ = cv2.findHomography(im_ref_cv, im_to_register_cv, method=0)
+    # homography = np.linalg.inv(homography)
+    # # print(homography)
+    # height_cv, width_cv, _ = im_to_register_cv.shape
+    # registered_im = np.zeros([height_cv, width_cv])
+    # for i in range(height_cv):
+    #     for j in range(width_cv):
+    #         [x_prime, y_prime, s] = np.matmul(homography,[i,j,1])/np.matmul(homography[2],[i,j,1])
+    #         x_prime = int(np.floor(x_prime))
+    #         y_prime = int(np.floor(y_prime))
+    #         if x_prime>0 and x_prime<height_cv and y_prime>0 and y_prime<width_cv:
+    #             registered_im[x_prime,y_prime] = im_to_register_cv[i,j]
+    #             # recal[i,j] = im_recal[x_prime,y_prime]
+    # registered_im = registered_im.reshape((height, width))
+    # plt.imsave('temp/im_recalee.png', registered_im, cmap='gray')
+    # exit()
 
     im_to_register_up = np.zeros([height*upscale_factor,width*upscale_factor])
     for h in range(height):
@@ -123,6 +141,7 @@ def computing_regitration_v2(im_ref, im_to_register, upscale_factor, display=Fal
             im_to_register_up[idx_h_ref][idx_w_ref] = im_to_register[h][w]
 
     registered_im = cv2.warpPerspective(im_to_register_up, homography, (width*upscale_factor, height*upscale_factor))
+    # registered_im = cv2.warpPerspective(im_to_register, homography, (width, height))
     
 
     if display:
@@ -195,9 +214,9 @@ def creation_HR_grid_v2(im_ref, list_image_input_dir, idx_ref, upscale_factor, c
 
             im_sr[idx_h_ref][idx_w_ref] = im_ref[h][w]
 
-    for k in range(len(list_image_input_dir)):
+    print('######### idx_ref =', idx_ref, '#########')
+    for k in range(len(list_image_input_dir)-7):
         if k != idx_ref:
-            print('######### idx_ref =', idx_ref, '#########')
             im_to_register = io.imread(list_image_input_dir[k])
             if color=='gray':
                 im_to_register = rgb2gray(im_to_register)
@@ -206,7 +225,7 @@ def creation_HR_grid_v2(im_ref, list_image_input_dir, idx_ref, upscale_factor, c
 
             # im_sr += im_registered_list[k]
             im_sr[im_sr==0] = registered_im[im_sr==0]
-            plt.imsave('HR.png', im_sr, cmap='gray')
+            # plt.imsave('HR.png', im_sr, cmap='gray')
             # exit()
             
     global_time = time.time() - global_start_time
