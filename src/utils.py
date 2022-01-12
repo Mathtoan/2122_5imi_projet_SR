@@ -44,6 +44,18 @@ def gaussian_2d(h, w,sigma_x, sigma_y, meshgrid=False):
     else:
         return U, V, H
 
+def filter_test(h, w,sigma):
+    u = np.linspace(-(w-1)/2.,(w-1)/2., w)/((w-1)/2)
+    v = np.linspace(-(h-1)/2.,(h-1)/2., h)/((h-1)/2)
+    U,V = np.meshgrid(u,v)
+
+    H = np.zeros(U.shape)
+    for i in range(U.shape[0]):
+        for j in range(U.shape[1]):
+            if abs(U[i][j])<sigma and abs(V[i][j])<sigma:
+                H[i][j] = 1.
+    return H
+
 def computing_regitration(list_image_input_dir, idx_ref, upscale_factor, display=False):
     print('######### idx_ref =', idx_ref, '#########')
     im_ref = rescale(rgb2gray(io.imread(list_image_input_dir[idx_ref])), 1/upscale_factor)
@@ -99,7 +111,7 @@ def computing_regitration_v2(im_ref, im_to_register, upscale_factor, display=Fal
     for i in range(len(matches)):
         p1[i, :] = kp_recal[matches[i].queryIdx].pt
         p2[i, :] = kp_ref[matches[i].trainIdx].pt
-    homography, _ = cv2.findHomography(p1, p2, cv2.RANSAC)
+    homography, _ = cv2.findHomography(p1, p2, cv2.RANSAC) # confidence level to check
 
     # im_to_register = rescale(im_to_register, upscale_factor)
 
@@ -195,13 +207,13 @@ def creation_HR_grid_v2(im_ref, list_image_input_dir, idx_ref, upscale_factor, c
             # im_sr += im_registered_list[k]
             im_sr[im_sr==0] = registered_im[im_sr==0]
             plt.imsave('HR.png', im_sr, cmap='gray')
-            exit()
+            # exit()
             
     global_time = time.time() - global_start_time
     print('Execution time : %0.2fs' % (global_time))
     return im_sr
 
-def PG_method(HR_grid, im_ref, sigma, upscale_factor, it, out_filter=False, save_every=False, save_dir=None):
+def PG_method(HR_grid, im_ref, sigma, upscale_factor, it, out_filter=False, save_every=False, save_dir=None, MSE=None):
     if save_every:
         if save_dir==None:
             print('A save path should be input')
@@ -212,14 +224,48 @@ def PG_method(HR_grid, im_ref, sigma, upscale_factor, it, out_filter=False, save
     im_sr = HR_grid
     sr_size = HR_grid.shape
     print(HR_grid.shape)
-    gauss_filter = gaussian_2d(sr_size[0], sr_size[1], sigma, sigma)
+    # filter = gaussian_2d(sr_size[0], sr_size[1], sigma, sigma)
+    MSE = np.zeros(it)
+    filter = filter_test(sr_size[0], sr_size[1], sigma)
     for i in tqdm(range(it), desc='Main loop'):
+        old_im_sr = im_sr
+        # plt.figure()
+        # plt.subplot(221)
+        # plt.imshow(old_im_sr.real, 'gray')
+        # plt.title('Image (it = %i)'%(i))
 
-        fft_im_sr = fftshift(fft2(im_sr))
-        fft_im_sr = fft_im_sr * gauss_filter
+        fft_im_sr_old = fftshift(fft2(im_sr))
+
+        # plt.subplot(222)
+        # plt.imshow(np.log10(np.abs(fft_im_sr_old)), 'gray')
+        # plt.title('FFT image (log10) (it = %i)'%(i))
+        
+        # fft_im_sr = fft_im_sr_old * filter
+        fft_im_sr = np.multiply(fft_im_sr_old, filter)
+
+        # plt.subplot(224)
+        # plt.imshow(np.log10(np.abs(fft_im_sr)), 'gray')
+        # plt.title('FFT image (log10) (it = %i)'%(i+1))
+
         im_sr = ifft2(ifftshift(fft_im_sr))
 
+        # plt.subplot(223)
+        # plt.imshow(im_sr.real, 'gray')
+        # plt.title('Image (it = %i)'%(i+1))
+
+        # plt.show()
+        # plt.close()
+
+        # plt.figure()
+        # plt.imshow(filter, 'gray')
+        # plt.title('Filter (sigma = %0.3f)'%(sigma))
+        # plt.show()
+        # plt.close()
+        # exit()
+
         im_sr[HR_grid>0] = HR_grid[HR_grid>0]
+
+        MSE[i] = np.sum(np.abs((im_sr - old_im_sr)**2))/(im_sr.shape[0]*im_sr.shape[1])
         # max_val = np.amax(abs(im_sr))
         # min_val = np.amin(abs(im_sr))
         # im_sr = 255*(abs(im_sr) - min_val) / (max_val-min_val)
@@ -229,10 +275,18 @@ def PG_method(HR_grid, im_ref, sigma, upscale_factor, it, out_filter=False, save
             if not(os.path.exists(save_path)):
                 os.makedirs(save_path)
             save_im_new(os.path.join(save_path,'sr_image_new.png'), im_sr.real)
+    
+    plt.figure()
+    plt.plot(np.linspace(1,it,it), MSE, )
+    plt.yscale('log')
+    plt.grid(True, axis='both', which='both')
+    plt.show()
+    plt.close()
+    
         
     # global_time = time.time() - global_start_time
     # print('Execution time : %0.2f' % (global_time))
     if not(out_filter):
         return im_sr
     else:
-        return im_sr, gauss_filter
+        return im_sr, filter
