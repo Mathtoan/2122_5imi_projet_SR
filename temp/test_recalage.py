@@ -19,23 +19,35 @@ def shifts_calculation(im_ref, im_recal, display=False):
     for i in range(len(matches)):
         p1[i, :] = kp_recal[matches[i].queryIdx].pt
         p2[i, :] = kp_ref[matches[i].trainIdx].pt
+    # homography, mask = cv2.findHomography(im_ref_cv, im_recal_cv, cv2.RANSAC)
     homography, mask = cv2.findHomography(p1, p2, cv2.RANSAC)
     shift_x = np.zeros([h,w])
     shift_y = np.zeros([h,w])
-    recal = np.zeros([h,w])
+    recal   = np.zeros([h,w])
+    recal2  = np.zeros([h,w])
 
     homography = np.linalg.inv(homography)
+    print(homography)
     for i in range(h):
         for j in range(w):
-            [x_prime, y_prime, _] = np.matmul(homography,[i,j,1])/np.matmul(homography[2],[i,j,1])
-            vec_to_normalize = [x_prime, y_prime, 1]
-            n = np.linalg.norm(vec_to_normalize)
-            if n != 0: 
-                vec_to_normalize =  vec_to_normalize / n
-                x_prime = vec_to_normalize[0]
-                y_prime = vec_to_normalize[1]
+            [x_prime, y_prime, s] = np.matmul(homography,[i,j,1])/np.matmul(homography[2],[i,j,1])
+            # print("Avant '/s' --> xprime=",x_prime, " yprime=",y_prime, " s=",s)
+            x_prime = int(np.floor(x_prime/s))
+            y_prime = int(np.floor(y_prime/s))
+            # print("Après '/s' (1)--> xprime=",x_prime, " yprime=",y_prime)
+            x_prime2 = int(np.floor(x_prime))
+            y_prime2 = int(np.floor(y_prime))
+            # print("Après '/s' (2)--> xprime=",x_prime2, " yprime=",y_prime2)
+            
+            if x_prime>0 and x_prime<h and y_prime>0 and y_prime<w:
+                recal[x_prime,y_prime] = im_recal[i,j]
+            if x_prime2>0 and x_prime2<h and y_prime2>0 and y_prime2<w:
+                recal2[x_prime2,y_prime2] = im_recal[i,j]
+
             shift_x[i][j] = x_prime - i
             shift_y[i][j] = y_prime - j
+    plt.imsave('temp/im_recalee.png', recal, cmap='gray')
+    plt.imsave('temp/im_recalee2.png', recal2, cmap='gray')
 
 
     
@@ -55,6 +67,13 @@ def shifts_calculation(im_ref, im_recal, display=False):
 
 
 
+
+
+
+shift = np.array([-10., -10.])
+mapTest = cv2.reg_MapShift(shift)
+
+
 ##Recalage image 1
 # Open the image files.
 img1_color = cv2.imread("temp/im_test_1.jpg") # Image to be aligned.
@@ -69,6 +88,8 @@ img1 = cv2.cvtColor(img1_color, cv2.COLOR_BGR2GRAY)
 img2 = cv2.cvtColor(img2_color, cv2.COLOR_BGR2GRAY)
 
 sx,sy = shifts_calculation(img2,img1)
+exit(1)
+
 h,w = img2.shape
 im_recalee = np.zeros([h,w])
 for i in range(h):
@@ -82,7 +103,7 @@ plt.imsave('temp/im_recalee.png', im_recalee, cmap='gray')
 # plt.show()
 # plt.close()
 
-exit(1)
+
 
 
 
