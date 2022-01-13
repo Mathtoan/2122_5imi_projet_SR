@@ -95,7 +95,7 @@ save_im_new(os.path.join(o_up_dir,'lr_image_'+str(idx_ref)+'.png'), im_ref)
 if not(savesteps):
     im_sr,H = PG_method(HR_grid, im_ref, sigma, upscale_factor, it, out_filter=True)
 else:
-    im_sr,H = PG_method(HR_grid, im_ref, sigma, upscale_factor, it, out_filter=True, intermediary_step=True, save_dir=o_sigma_dir)
+    im_sr,H = PG_method(HR_grid, im_ref, sigma, upscale_factor, it, out_filter=True, intermediary_step=True, save_dir=o_sigma_dir, MSE=True)
 io.imsave(os.path.join(o_sigma_dir, 'filter.png'), H)
 io.imsave(os.path.join(o_it_dir,'sr_image_new.png'), im_sr.real)
 
