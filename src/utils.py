@@ -246,6 +246,7 @@ def PG_method(HR_grid, im_ref, sigma, upscale_factor, it,
     print(HR_grid.shape)
     filter = gaussian_2d(sr_size[0], sr_size[1], sigma, sigma)
     filter[filter<1e-5] = 0.
+    print("/!\ : in filter, forcing 0 when <1e-5")
     if MSE!=None:
         err = np.zeros(it)
     # filter = filter_test(sr_size[0], sr_size[1], sigma)
@@ -305,9 +306,12 @@ def PG_method(HR_grid, im_ref, sigma, upscale_factor, it,
     
     if MSE!=None:
         plt.figure()
-        plt.plot(np.linspace(1,it,it), MSE, )
+        plt.plot(np.linspace(1,it,it), err)
         plt.yscale('log')
         plt.grid(True, axis='both', which='both')
+        plt.title('Mean Square Error')
+        plt.xlabel('iterations')
+        plt.ylabel('MSE')
         plt.show()
         plt.close()
     
