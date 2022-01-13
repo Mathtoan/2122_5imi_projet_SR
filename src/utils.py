@@ -56,42 +56,85 @@ def filter_test(h, w,sigma):
                 H[i][j] = 1.
     return H
 
-def computing_regitration(list_image_input_dir, idx_ref, upscale_factor, display=False):
+def creation_HR_grid(im_ref, list_image_input_dir, idx_ref, upscale_factor, color):
+    print('---- Creation HR grid ----')
+    global_start_time = time.time()
+    lr_size = im_ref.shape
+    if color=='gray':
+        sr_size = [lr_size[0]*upscale_factor, lr_size[1]*upscale_factor]
+    elif color=='rgb':
+        sr_size = [lr_size[0]*upscale_factor, lr_size[1]*upscale_factor, 3]
+    else:
+        print('Undefined color')
+        exit()
+    # im_sr = np.zeros(sr_size)
+    im_ref_up = np.zeros(sr_size)
+    print("sr size = ", sr_size)
+
+    for h in range(lr_size[0]):
+        for w in range(lr_size[1]):
+    
+            idx_h_ref = h*upscale_factor
+            idx_w_ref = w*upscale_factor
+
+            im_ref_up[idx_h_ref][idx_w_ref] = im_ref[h][w]
+    im_sr = np.copy(im_ref_up)
+
+    # print(np.amin(im_sr), np.amax(im_sr))
     print('######### idx_ref =', idx_ref, '#########')
-    im_ref = rescale(rgb2gray(io.imread(list_image_input_dir[idx_ref])), 1/upscale_factor)
-    registration_shifts = []
-    im_to_register_list = []
-    for i in range(len(list_image_input_dir)):
-        if i != idx_ref:
-            im_to_register = rescale(rgb2gray(io.imread(list_image_input_dir[i])), 1/upscale_factor)
+    for k in tqdm(range(len(list_image_input_dir)), desc='Registration'):
+        if k != idx_ref:
+            im_to_register = io.imread(list_image_input_dir[k])
+            if color=='gray':
+                im_to_register = rgb2gray(im_to_register)
+            im_to_register = rescale(im_to_register, 1/upscale_factor)
+            registered_im = computing_regitration_pixel(im_ref, im_to_register, upscale_factor)
 
-            shifted, _, _ = phase_cross_correlation(im_ref, im_to_register,upsample_factor=upscale_factor)
+            # im_sr[im_sr==0] = registered_im[im_sr==0]
+            im_sr += registered_im
+            
+            plt.imsave("registered_"+str(k)+".png",im_ref_up+registered_im, cmap='gray')
+            
+    print("avant",np.amin(im_sr), np.amax(im_sr))
+    im_sr = (im_sr - np.amin(im_sr)) / (np.amax(im_sr) - np.amin(im_sr))
+    print("après",np.amin(im_sr), np.amax(im_sr))
+            
+    global_time = time.time() - global_start_time
+    print('Execution time : %0.2fs' % (global_time))
+    return im_sr
 
-            if display:
-                registered_im = shift(im_to_register, shift=(shifted[0], shifted[1]), mode='constant')
-                plt.figure()
-                plt.subplot(221)
-                plt.imshow(im_ref, 'gray')
-                plt.title('Image de reference')
-                plt.subplot(222)
-                plt.imshow(im_to_register, 'gray')
-                plt.title('Image a recaler')
-                plt.subplot(223)
-                plt.imshow(registered_im, 'gray')
-                plt.title('Image recalee')
-                plt.show()
-                plt.close()
+def computing_regitration_translation(im_ref, im_to_register, upscale_factor, display=False):    
+    shifted, _, _ = phase_cross_correlation(im_ref, im_to_register,upsample_factor=upscale_factor)
+    
+    lr_size = im_ref.shape
+    sr_size = [lr_size[0]*upscale_factor,lr_size[1]*upscale_factor]
+    registered_im = np.zeros(sr_size)
+            
+    for h in range(lr_size[0]):
+        for w in range(lr_size[1]):
+            idx_h = h*upscale_factor + shifted[0]*upscale_factor
+            idx_w = w*upscale_factor + shifted[1]*upscale_factor
+            if idx_h > 0 and idx_h < sr_size[0] and idx_w > 0 and idx_w < sr_size[1]:
+                registered_im[int(idx_h)][int(idx_w)] = im_to_register[h][w]
 
-            if shifted[0] != int(shifted[0]) or shifted[1] != int(shifted[1]):
-                if not(shifted.tolist() in registration_shifts):
-                    registration_shifts.append(shifted.tolist())
-                    im_to_register_list.append(im_to_register)
-            print(i, shifted)
-    print(registration_shifts)
-    print("valid shifts :", len(im_to_register_list))
-    return im_ref, im_to_register_list, registration_shifts
+    if display:
+        # registered_im = shift(im_to_register, shift=(shifted[0], shifted[1]), mode='constant')
+        plt.figure()
+        plt.subplot(221)
+        plt.imshow(im_ref, 'gray')
+        plt.title('Image de reference')
+        plt.subplot(222)
+        plt.imshow(im_to_register, 'gray')
+        plt.title('Image a recaler')
+        plt.subplot(223)
+        plt.imshow(registered_im, 'gray')
+        plt.title('Image recalee')
+        plt.show()
+        plt.close()
+    
+    return registered_im
 
-def computing_regitration_v2(im_ref, im_to_register, upscale_factor, display=False):
+def computing_regitration_POI(im_ref, im_to_register, upscale_factor, display=False):
     
     height, width = im_ref.shape
     im_to_register_cv = img_as_ubyte(im_to_register)
@@ -103,47 +146,35 @@ def computing_regitration_v2(im_ref, im_to_register, upscale_factor, display=Fal
     matcher = cv2.BFMatcher(cv2.NORM_HAMMING, crossCheck = True)
     matches = matcher.match(d_recal, d_ref)
     matches = sorted(matches,key = lambda x: x.distance)
-    # matches = matches[:int(len(matches)*0.9)]
     no_of_matches = len(matches)
-    # print(no_of_matches)
     p1 = np.zeros((no_of_matches, 2))
     p2 = np.zeros((no_of_matches, 2))
     for i in range(len(matches)):
         p1[i, :] = kp_recal[matches[i].queryIdx].pt
         p2[i, :] = kp_ref[matches[i].trainIdx].pt
     homography, _ = cv2.findHomography(p1, p2, cv2.RANSAC)
-    
-    # im_to_register_cv = im_to_register.reshape((-1,1,2)).astype('float32')
-    # im_ref_cv = im_ref.reshape((-1,1,2)).astype('float32')
-    
-    # homography, _ = cv2.findHomography(im_ref_cv, im_to_register_cv, method=0)
-    # homography = np.linalg.inv(homography)
-    # # print(homography)
-    # height_cv, width_cv, _ = im_to_register_cv.shape
-    # registered_im = np.zeros([height_cv, width_cv])
-    # for i in range(height_cv):
-    #     for j in range(width_cv):
-    #         [x_prime, y_prime, s] = np.matmul(homography,[i,j,1])/np.matmul(homography[2],[i,j,1])
-    #         x_prime = int(np.floor(x_prime))
-    #         y_prime = int(np.floor(y_prime))
-    #         if x_prime>0 and x_prime<height_cv and y_prime>0 and y_prime<width_cv:
-    #             registered_im[x_prime,y_prime] = im_to_register_cv[i,j]
-    #             # recal[i,j] = im_recal[x_prime,y_prime]
-    # registered_im = registered_im.reshape((height, width))
-    # plt.imsave('temp/im_recalee.png', registered_im, cmap='gray')
-    # exit()
 
-    im_to_register_up = np.zeros([height*upscale_factor,width*upscale_factor])
+
+    homography = np.linalg.inv(homography)
+    registered_im = np.zeros([height*upscale_factor,width*upscale_factor])
     for h in range(height):
         for w in range(width):
-            idx_h_ref = h*upscale_factor
-            idx_w_ref = w*upscale_factor
-            im_to_register_up[idx_h_ref][idx_w_ref] = im_to_register[h][w]
-
-    registered_im = cv2.warpPerspective(im_to_register_up, homography, (width*upscale_factor, height*upscale_factor))
+            [x_prime, y_prime, s] = np.matmul(homography,[h,w,1])/np.matmul(homography[2],[h,w,1])
+            idx_h_ref = int(x_prime*upscale_factor)
+            idx_w_ref = int(y_prime*upscale_factor)
+            if idx_h_ref>0 and idx_h_ref<height*upscale_factor and idx_w_ref>0 and idx_w_ref<width*upscale_factor:
+                registered_im[idx_h_ref][idx_w_ref] = im_to_register[h][w]
+    
+    # im_to_register_up = np.zeros([height*upscale_factor,width*upscale_factor])
+    # for h in range(height):
+    #     for w in range(width):
+    #         idx_h_ref = h*upscale_factor
+    #         idx_w_ref = w*upscale_factor
+    #         im_to_register_up[idx_h_ref][idx_w_ref] = im_to_register[h][w]     
+       
+    # registered_im = cv2.warpPerspective(im_to_register_up, homography, (width*upscale_factor, height*upscale_factor), cv2.INTER_NEAREST)
     # registered_im = cv2.warpPerspective(im_to_register, homography, (width, height))
     
-
     if display:
         plt.figure()
         plt.subplot(221)
@@ -160,77 +191,77 @@ def computing_regitration_v2(im_ref, im_to_register, upscale_factor, display=Fal
 
     return registered_im
 
-def creation_HR_grid(im_ref, upscale_factor, im_to_register_list, registration_shifts, color):
-    print('---- Creation HR grid ----')
-    global_start_time = time.time()
-    lr_size = im_ref.shape
-    if color=='gray':
-        sr_size = [lr_size[0]*upscale_factor, lr_size[1]*upscale_factor]
-    elif color=='rgb':
-        sr_size = [lr_size[0]*upscale_factor, lr_size[1]*upscale_factor, 3]
-    else:
-        print('Undefined color')
-        exit()
-    im_sr = np.zeros(sr_size)
-
-    for h in tqdm(range(lr_size[0]), desc='Main loop'):
-        for w in tqdm(range(lr_size[1]), desc=f'Line {h}', leave=False):
+def computing_regitration_pixel(im_ref, im_to_register, upscale_factor, display=False):
     
-            idx_h_ref = h*upscale_factor+int(upscale_factor/2)
-            idx_w_ref = w*upscale_factor+int(upscale_factor/2)
-
-            im_sr[idx_h_ref][idx_w_ref] = im_ref[h][w]
-
-            for k in range(len(registration_shifts)):
-                idx_h = idx_h_ref + registration_shifts[k][0]*upscale_factor
-                idx_w = idx_w_ref + registration_shifts[k][0]*upscale_factor
-
-                if idx_h > 0 and idx_h < sr_size[0] and idx_w > 0 and idx_w < sr_size[1]:
-                    im_sr[int(idx_h)][int(idx_w)] = im_to_register_list[k][h][w]
-            
-    global_time = time.time() - global_start_time
-    print('Execution time : %0.2fs' % (global_time))
-    return im_sr
-
-def creation_HR_grid_v2(im_ref, list_image_input_dir, idx_ref, upscale_factor, color):
-    print('---- Creation HR grid ----')
-    global_start_time = time.time()
-    lr_size = im_ref.shape
-    if color=='gray':
-        sr_size = [lr_size[0]*upscale_factor, lr_size[1]*upscale_factor]
-    elif color=='rgb':
-        sr_size = [lr_size[0]*upscale_factor, lr_size[1]*upscale_factor, 3]
-    else:
-        print('Undefined color')
-        exit()
-    im_sr = np.zeros(sr_size)
-    print("sr size = ", sr_size)
-
-    for h in range(lr_size[0]):
-        for w in range(lr_size[1]):
+    height, width = im_ref.shape
+    im_to_register_cv = img_as_ubyte(im_to_register)
+    im_ref_cv = img_as_ubyte(im_ref)
     
+    im_to_register_cv = im_to_register.reshape((1,-1,2)).astype('float32')
+    im_ref_cv = im_ref.reshape((1,-1,2)).astype('float32')
+    
+    homography, _ = cv2.findHomography(im_ref_cv, im_to_register_cv, method=0)
+    # homography = np.linalg.inv(homography)
+    # # print(homography)
+    # height_cv, _, width_cv = im_to_register_cv.shape
+    # print(im_to_register_cv.shape)
+    # registered_im = np.zeros([height_cv, width_cv])
+    # for i in range(height_cv):
+    #     for j in range(width_cv):
+    #         [x_prime, y_prime, s] = np.matmul(homography,[i,j,1])/np.matmul(homography[2],[i,j,1])
+    #         x_prime = int(np.floor(x_prime))
+    #         y_prime = int(np.floor(y_prime))
+    #         if x_prime>0 and x_prime<height_cv and y_prime>0 and y_prime<width_cv:
+    #             registered_im[x_prime,y_prime] = im_to_register_cv[i,0,j]
+    #             # recal[i,j] = im_recal[x_prime,y_prime]
+
+
+    # homography = np.linalg.inv(homography)
+    # registered_im = np.zeros([height*upscale_factor,width*upscale_factor])
+    # for h in range(height):
+    #     for w in range(width):
+    #         [x_prime, y_prime, s] = np.matmul(homography,[h,w,1])/np.matmul(homography[2],[h,w,1])
+    #         idx_h_ref = int(x_prime*upscale_factor)
+    #         idx_w_ref = int(y_prime*upscale_factor)
+    #         if idx_h_ref>0 and idx_h_ref<height*upscale_factor and idx_w_ref>0 and idx_w_ref<width*upscale_factor:
+    #             registered_im[idx_h_ref][idx_w_ref] = im_to_register[h][w]
+    
+    # registered_im = registered_im.reshape((height, width))
+    
+    
+    
+    im_to_register_up = np.zeros([height*upscale_factor,width*upscale_factor])
+    for h in range(height):
+        for w in range(width):
             idx_h_ref = h*upscale_factor
             idx_w_ref = w*upscale_factor
-
-            im_sr[idx_h_ref][idx_w_ref] = im_ref[h][w]
-
-    print('######### idx_ref =', idx_ref, '#########')
-    for k in tqdm(range(len(list_image_input_dir)), desc='Registration'):
-        if k != idx_ref:
-            im_to_register = io.imread(list_image_input_dir[k])
-            if color=='gray':
-                im_to_register = rgb2gray(im_to_register)
-            im_to_register = rescale(im_to_register, 1/upscale_factor)
-            registered_im = computing_regitration_v2(im_ref, im_to_register, upscale_factor)
-
-            # im_sr += im_registered_list[k]
-            im_sr[im_sr==0] = registered_im[im_sr==0]
-            # plt.imsave('HR.png', im_sr, cmap='gray')
-            # exit()
+            im_to_register_up[idx_h_ref][idx_w_ref] = im_to_register[h][w]
             
-    global_time = time.time() - global_start_time
-    print('Execution time : %0.2fs' % (global_time))
-    return im_sr
+    im_to_register_up_cv = img_as_ubyte(im_to_register_up)
+           
+    registered_im = cv2.warpPerspective(im_to_register_up_cv, homography, (width*upscale_factor, height*upscale_factor), cv2.INTER_NEAREST)
+    # registered_im = cv2.warpPerspective(im_to_register, homography, (width, height))
+    
+    registered_im = registered_im.reshape((height*upscale_factor, width*upscale_factor))
+    
+    plt.imsave('registered.png', registered_im, cmap='gray')
+    exit()
+    
+    if display:
+        plt.figure()
+        plt.subplot(221)
+        plt.imshow(im_ref, 'gray')
+        plt.title('Image de reference')
+        plt.subplot(222)
+        plt.imshow(im_to_register, 'gray')
+        plt.title('Image a recaler')
+        plt.subplot(223)
+        plt.imshow(registered_im, 'gray')
+        plt.title('Image recalee')
+        plt.show()
+        plt.close()
+
+    return registered_im
 
 def PG_method(HR_grid, im_ref, sigma, upscale_factor, it,
               out_filter=False, intermediary_step=False, save_dir=None, MSE=None, plot_debug=False):
