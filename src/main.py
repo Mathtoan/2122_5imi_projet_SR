@@ -22,7 +22,7 @@ parser.add_argument('-o', '--sigma', type=float, default='0.05',
                     help='Choose the value of sigma')
 parser.add_argument('-c', '--color', type=str, default='gray',
                     help='Choose the color of the output image', choices=['gray','rgb'])
-parser.add_argument('-r', '--ref', type=int, default='9',
+parser.add_argument('-r', '--ref', type=int, default='0',
                     help='Choose the reference image')
 parser.add_argument('-S','--savesteps', action='store_true',
                     help='Save PG method step every 100')
@@ -74,28 +74,23 @@ HR_grid_txt_dir = os.path.join(o_up_dir, 'HR_grid_'+str(idx_ref)+'.txt')
 # if os.path.exists(HR_grid_txt_dir):
 #     print('Loading ', HR_grid_txt_dir)
 #     HR_grid = np.loadtxt(HR_grid_txt_dir, dtype=float)
-#     im_ref = rescale(rgb2gray(io.imread(list_image_input_dir[idx_ref])), 1/upscale_factor)
-#     print(HR_grid.shape)
 # else:
-#     im_ref, im_to_register_list, registration_shifts = computing_regitration(list_image_input_dir, idx_ref, upscale_factor)
-#     HR_grid = creation_HR_grid(im_ref, upscale_factor, im_to_register_list, registration_shifts, color)
+#     HR_grid = creation_HR_grid(im_ref, list_image_input_dir, idx_ref, upscale_factor, color)
 #     np.savetxt(HR_grid_txt_dir, HR_grid, fmt='%f')
 
-# im_registered_list = computing_regitration_v2(im_ref, list_image_input_dir, idx_ref, upscale_factor, color)
-# HR_grid = creation_HR_grid_v2(im_ref, upscale_factor, im_registered_list, color)
-# np.savetxt(HR_grid_txt_dir, HR_grid, fmt='%f')
-
-HR_grid = creation_HR_grid_v2(im_ref, list_image_input_dir, idx_ref, upscale_factor, color)
+HR_grid = creation_HR_grid(im_ref, list_image_input_dir, idx_ref, upscale_factor, color)
+np.savetxt(HR_grid_txt_dir, HR_grid, fmt='%f')
 
 io.imsave(os.path.join(o_up_dir,'hr_grid_'+str(idx_ref)+'.png'), HR_grid)
 save_im_new(os.path.join(o_up_dir,'groundtruth.png'), im_groundtruth)
 save_im_new(os.path.join(o_up_dir,'lr_image_'+str(idx_ref)+'.png'), im_ref)
+# exit()
 
 #%% Papoulis-Gerchberg method
 if not(savesteps):
     im_sr,H = PG_method(HR_grid, im_ref, sigma, upscale_factor, it, out_filter=True)
 else:
-    im_sr,H = PG_method(HR_grid, im_ref, sigma, upscale_factor, it, out_filter=True, save_every=True, save_dir=o_sigma_dir)
+    im_sr,H = PG_method(HR_grid, im_ref, sigma, upscale_factor, it, out_filter=True, intermediary_step=True, save_dir=o_sigma_dir, MSE=True)
 io.imsave(os.path.join(o_sigma_dir, 'filter.png'), H)
 io.imsave(os.path.join(o_it_dir,'sr_image_new.png'), im_sr.real)
 
