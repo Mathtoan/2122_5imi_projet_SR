@@ -26,6 +26,8 @@ parser.add_argument('-r', '--ref', type=int, default='9',
                     help='Choose the reference image')
 parser.add_argument('-S','--savesteps', action='store_true',
                     help='Save PG method step every 100')
+parser.add_argument('-m','--mse', action='store_true',
+                    help='Compute MSE between iterations')
 
 
 
@@ -39,6 +41,7 @@ sigma = args.sigma
 color = args.color
 idx_ref = args.ref
 savesteps = args.savesteps
+mse = args.mse
 
 print('RUNNING PARAMETER', 
       '\nUpscale factor :', upscale_factor,
@@ -87,17 +90,15 @@ HR_grid_txt_dir = os.path.join(o_up_dir, 'HR_grid_'+str(idx_ref)+'.txt')
 
 HR_grid = creation_HR_grid_v2(im_ref, list_image_input_dir, idx_ref, upscale_factor, color)
 
-io.imsave(os.path.join(o_up_dir,'hr_grid_'+str(idx_ref)+'.png'), HR_grid)
+io.imsave(os.path.join(o_up_dir,'hr_grid_'+str(idx_ref)+'.png'), float64_to_uint8(HR_grid))
 save_im_new(os.path.join(o_up_dir,'groundtruth.png'), im_groundtruth)
 save_im_new(os.path.join(o_up_dir,'lr_image_'+str(idx_ref)+'.png'), im_ref)
 
 #%% Papoulis-Gerchberg method
-if not(savesteps):
-    im_sr,H = PG_method(HR_grid, im_ref, sigma, upscale_factor, it, out_filter=True)
-else:
-    im_sr,H = PG_method(HR_grid, im_ref, sigma, upscale_factor, it, out_filter=True, intermediary_step=True, save_dir=o_sigma_dir, MSE=True)
-io.imsave(os.path.join(o_sigma_dir, 'filter.png'), H)
-io.imsave(os.path.join(o_it_dir,'sr_image_new.png'), im_sr.real)
+im_sr,H = PG_method(HR_grid, im_ref, sigma, upscale_factor, it,
+                    save_dir=o_sigma_dir, MSE=mse, out_filter=True, intermediary_step=savesteps)
+io.imsave(os.path.join(o_sigma_dir, 'filter.png'), float64_to_uint8(H))
+io.imsave(os.path.join(o_it_dir,'sr_image_new.png'), float64_to_uint8(im_sr.real))
 
 if color=='gray':
     colmap='gray'

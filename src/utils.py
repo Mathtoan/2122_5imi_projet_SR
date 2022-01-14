@@ -25,10 +25,19 @@ def display_progression(it, it_total): # Old, should use tqdm instead
     else:
         print('Loading '+progress_bar+' %.2f%%' %(progression))
         print('done')
+def float64_to_uint8(x):
+    if x.dtype == np.uint8:
+        return(x)
+    elif x.dtype != np.float64:
+        print('Data not in float64')
+        exit()
+    else:
+        return np.round(x*255).astype(np.uint8)
+
 def save_im_new(path, im):
     if not(os.path.exists(path)):
         print('saving', path)
-        io.imsave(path, im)
+        io.imsave(path, float64_to_uint8(im))
     else:
         print(path, 'already saved')
 # psf2otf
@@ -305,14 +314,17 @@ def PG_method(HR_grid, im_ref, sigma, upscale_factor, it,
             save_im_new(os.path.join(save_path,'sr_image_new.png'), im_sr.real)
     
     if MSE!=None:
-        plt.figure()
+        plt.figure(figsize=(10,7))
         plt.plot(np.linspace(1,it,it), err)
         plt.yscale('log')
         plt.grid(True, axis='both', which='both')
         plt.title('Mean Square Error')
         plt.xlabel('iterations')
         plt.ylabel('MSE')
-        plt.show()
+        if save_dir == None:
+            plt.show()
+        else:
+            plt.savefig(os.path.join(save_dir, 'MSE.png'), dpi=200)
         plt.close()
     
         
