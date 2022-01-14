@@ -5,6 +5,7 @@ import time
 import cv2
 import matplotlib.pyplot as plt
 import numpy as np
+import itk
 from numpy.fft import fft2, fftshift, ifft2, ifftshift
 from scipy.ndimage import shift
 from scipy.signal import convolve2d
@@ -65,7 +66,7 @@ def filter_test(h, w,sigma):
                 H[i][j] = 1.
     return H
 
-def creation_HR_grid(im_ref, list_image_input_dir, idx_ref, upscale_factor, color):
+def creation_HR_grid(im_ref, list_image_input_dir, idx_ref, upscale_factor, method, color):
     print('---- Creation HR grid ----')
     global_start_time = time.time()
     lr_size = im_ref.shape
@@ -78,6 +79,7 @@ def creation_HR_grid(im_ref, list_image_input_dir, idx_ref, upscale_factor, colo
         exit()
     # im_sr = np.zeros(sr_size)
     im_ref_up = np.zeros(sr_size)
+    cpt_grid = np.ones(sr_size)
     print("sr size = ", sr_size)
 
     for h in range(lr_size[0]):
@@ -97,22 +99,26 @@ def creation_HR_grid(im_ref, list_image_input_dir, idx_ref, upscale_factor, colo
             if color=='gray':
                 im_to_register = rgb2gray(im_to_register)
             im_to_register = rescale(im_to_register, 1/upscale_factor)
-            registered_im = computing_regitration_pixel(im_ref, im_to_register, upscale_factor)
+            registered_im = eval('computing_regitration_'+method+'(im_ref, im_to_register, upscale_factor)')
 
             # im_sr[im_sr==0] = registered_im[im_sr==0]
             im_sr += registered_im
+            cpt_grid[registered_im != 0] += 1
             
             plt.imsave("registered_"+str(k)+".png",im_ref_up+registered_im, cmap='gray')
-            
-    print("avant",np.amin(im_sr), np.amax(im_sr))
-    im_sr = (im_sr - np.amin(im_sr)) / (np.amax(im_sr) - np.amin(im_sr))
-    print("après",np.amin(im_sr), np.amax(im_sr))
+            exit()
+    
+    im_sr[im_sr != 0] = im_sr[im_sr != 0] / cpt_grid[im_sr != 0]
+    # print("avant",np.amin(im_sr), np.amax(im_sr))
+    # im_sr = (im_sr - np.amin(im_sr)) / (np.amax(im_sr) - np.amin(im_sr))
+    # print("après",np.amin(im_sr), np.amax(im_sr))
             
     global_time = time.time() - global_start_time
     print('Execution time : %0.2fs' % (global_time))
     return im_sr
 
-def computing_regitration_translation(im_ref, im_to_register, upscale_factor, display=False):    
+def computing_regitration_translation(im_ref, im_to_register, upscale_factor, display=False):
+    print('Registration using translation method')
     shifted, _, _ = phase_cross_correlation(im_ref, im_to_register,upsample_factor=upscale_factor)
     
     lr_size = im_ref.shape
@@ -144,6 +150,7 @@ def computing_regitration_translation(im_ref, im_to_register, upscale_factor, di
     return registered_im
 
 def computing_regitration_POI(im_ref, im_to_register, upscale_factor, display=False):
+    print('Registration using POI method')
     
     height, width = im_ref.shape
     im_to_register_cv = img_as_ubyte(im_to_register)
@@ -162,26 +169,27 @@ def computing_regitration_POI(im_ref, im_to_register, upscale_factor, display=Fa
         p1[i, :] = kp_recal[matches[i].queryIdx].pt
         p2[i, :] = kp_ref[matches[i].trainIdx].pt
     homography, _ = cv2.findHomography(p1, p2, cv2.RANSAC)
+    homography[:2,2] = homography[:2,2]*upscale_factor
 
-
-    homography = np.linalg.inv(homography)
-    registered_im = np.zeros([height*upscale_factor,width*upscale_factor])
-    for h in range(height):
-        for w in range(width):
-            [x_prime, y_prime, s] = np.matmul(homography,[h,w,1])/np.matmul(homography[2],[h,w,1])
-            idx_h_ref = int(x_prime*upscale_factor)
-            idx_w_ref = int(y_prime*upscale_factor)
-            if idx_h_ref>0 and idx_h_ref<height*upscale_factor and idx_w_ref>0 and idx_w_ref<width*upscale_factor:
-                registered_im[idx_h_ref][idx_w_ref] = im_to_register[h][w]
-    
-    # im_to_register_up = np.zeros([height*upscale_factor,width*upscale_factor])
+    # homography = np.linalg.inv(homography)
+    # registered_im = np.zeros([height*upscale_factor,width*upscale_factor])
     # for h in range(height):
     #     for w in range(width):
-    #         idx_h_ref = h*upscale_factor
-    #         idx_w_ref = w*upscale_factor
-    #         im_to_register_up[idx_h_ref][idx_w_ref] = im_to_register[h][w]     
-       
-    # registered_im = cv2.warpPerspective(im_to_register_up, homography, (width*upscale_factor, height*upscale_factor), cv2.INTER_NEAREST)
+    #         [x_prime, y_prime, s] = np.matmul(homography,[h,w,1])/np.matmul(homography[2],[h,w,1])
+    #         idx_h_ref = int(x_prime*upscale_factor)
+    #         idx_w_ref = int(y_prime*upscale_factor)
+    #         if idx_h_ref>0 and idx_h_ref<height*upscale_factor and idx_w_ref>0 and idx_w_ref<width*upscale_factor:
+    #             registered_im[idx_h_ref][idx_w_ref] = im_to_register[h][w]
+    
+    im_to_register_up = np.zeros([height*upscale_factor,width*upscale_factor])
+    for h in range(height):
+        for w in range(width):
+            idx_h_ref = h*upscale_factor
+            idx_w_ref = w*upscale_factor
+            im_to_register_up[idx_h_ref][idx_w_ref] = im_to_register[h][w]     
+
+
+    registered_im = cv2.warpPerspective(im_to_register_up, homography, (width*upscale_factor, height*upscale_factor), cv2.INTER_LINEAR)
     # registered_im = cv2.warpPerspective(im_to_register, homography, (width, height))
     
     if display:
@@ -197,14 +205,18 @@ def computing_regitration_POI(im_ref, im_to_register, upscale_factor, display=Fa
         plt.title('Image recalee')
         plt.show()
         plt.close()
+    
+    # plt.imsave('registered.png', registered_im, cmap='gray')
+    # exit()
 
     return registered_im
 
 def computing_regitration_pixel(im_ref, im_to_register, upscale_factor, display=False):
+    print('Registration using intensity pixel method')
     
     height, width = im_ref.shape
-    im_to_register_cv = img_as_ubyte(im_to_register)
-    im_ref_cv = img_as_ubyte(im_ref)
+    # im_to_register_cv = img_as_ubyte(im_to_register)
+    # im_ref_cv = img_as_ubyte(im_ref)
     
     im_to_register_cv = im_to_register.reshape((1,-1,2)).astype('float32')
     im_ref_cv = im_ref.reshape((1,-1,2)).astype('float32')
@@ -253,8 +265,100 @@ def computing_regitration_pixel(im_ref, im_to_register, upscale_factor, display=
     
     registered_im = registered_im.reshape((height*upscale_factor, width*upscale_factor))
     
-    plt.imsave('registered.png', registered_im, cmap='gray')
-    exit()
+    if display:
+        plt.figure()
+        plt.subplot(221)
+        plt.imshow(im_ref, 'gray')
+        plt.title('Image de reference')
+        plt.subplot(222)
+        plt.imshow(im_to_register, 'gray')
+        plt.title('Image a recaler')
+        plt.subplot(223)
+        plt.imshow(registered_im, 'gray')
+        plt.title('Image recalee')
+        plt.show()
+        plt.close()
+
+    return registered_im
+
+def computing_regitration_itk(im_ref, im_to_register, upscale_factor, display=False):
+    print('Registration using itk method')
+    
+    height, width = im_ref.shape
+
+    # ----------------------
+    # Lecture des images
+    # ----------------------
+    
+    im_ref_itk = itk.GetImageFromArray(im_ref)
+    im_to_register_itk = itk.GetImageFromArray(im_to_register)
+    im_ref_itk_type = type(im_ref_itk) # On récupère le type de l'image fixe
+    im_to_register_itk_type = type(im_to_register_itk) # On récupère le type de l'image translatée
+
+
+    # ----------------------
+    # Optimiseur
+    # ----------------------
+    optimizer = itk.RegularStepGradientDescentOptimizer.New() # Instance de la classe d'optimiseur choisie
+    optimizer.SetMaximumStepLength(.1)
+    optimizer.SetMinimumStepLength(.001)
+    optimizer.SetNumberOfIterations(2000)
+    optimizer.SetScales([500, 1, 1, 1, 1])
+    # ----------------------
+    # initial Parameter
+    # ----------------------
+
+    initialTransform = itk.CenteredRigid2DTransform[itk.D].New() # Instance de la classe de transformation choisie
+    initialParameters = initialTransform.GetParameters() # Récupération des paramètres de la transformation
+
+    initialParameters[0] = 0
+    initialParameters[1] = itk.size(im_to_register_itk)[0]/2
+    initialParameters[2] = itk.size(im_to_register_itk)[1]/2
+    initialParameters[3] = 0
+    initialParameters[4] = 0
+
+    # ----------------------
+    # Interpolateur
+    # ----------------------
+
+    interpolator = itk.LinearInterpolateImageFunction[im_to_register_itk_type, itk.D].New()
+
+    # ----------------------
+    # Metrics
+    # ----------------------
+    metric = itk.MeanSquaresImageToImageMetric[im_ref_itk_type, im_to_register_itk_type].New()
+
+    # ----------------------
+    # Exécution du recalage
+    # ----------------------
+
+    registration_filter = itk.ImageRegistrationMethod[im_ref_itk_type, im_to_register_itk_type].New() # Instance de la classe de recalage
+    registration_filter.SetFixedImage(im_ref_itk) # Image de référence
+    registration_filter.SetMovingImage(im_to_register_itk) # Image à recaler
+    registration_filter.SetOptimizer(optimizer) # Optimiseur
+    registration_filter.SetTransform(itk.CenteredRigid2DTransform[itk.D].New()) # Transformation
+    registration_filter.SetInitialTransformParameters(initialParameters) #Application de la transformation initiale
+    registration_filter.SetInterpolator(interpolator) # Interpolateur
+    registration_filter.SetMetric(metric) # Métrique
+    registration_filter.Update() # Exécution du recalage
+
+    # ----------------------
+    # Apply last transform
+    # ----------------------
+
+    final_transform = registration_filter.GetTransform()
+    resample_filter = itk.ResampleImageFilter[im_ref_itk_type,im_to_register_itk_type].New() #Instance de la classe de ré-échantillonnage
+    resample_filter.SetInput(im_to_register_itk) # Image d'entrée
+    resample_filter.SetTransform(final_transform)
+    resample_filter.SetSize(im_ref_itk.GetLargestPossibleRegion().GetSize())
+
+    registered_im_itk = resample_filter.GetOutput()
+    registered_im = itk.GetArrayFromImage(registered_im_itk)
+    im_ref[:10,:10] = 1
+    registered_im[height-10:, width-10:] = 1
+    
+    print(optimizer.GetCurrentIteration())
+    print(optimizer.GetValue())
     
     if display:
         plt.figure()
