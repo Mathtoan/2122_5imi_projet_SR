@@ -25,6 +25,7 @@ def display_progression(it, it_total): # Old, should use tqdm instead
     else:
         print('Loading '+progress_bar+' %.2f%%' %(progression))
         print('done')
+
 def float64_to_uint8(x):
     if x.dtype == np.uint8:
         return(x)
@@ -34,12 +35,11 @@ def float64_to_uint8(x):
     else:
         return np.round(x*255).astype(np.uint8)
 
-def save_im_new(path, im):
-    if not(os.path.exists(path)):
-        print('saving', path)
-        io.imsave(path, float64_to_uint8(im))
-    else:
+def save_im(path, im, new=False):
+    if os.path.exists(path) and new:
         print(path, 'already saved')
+    else:
+        io.imsave(path, float64_to_uint8(im))
 # psf2otf
 def gaussian_2d(h, w,sigma_x, sigma_y, meshgrid=False):
     # 'Normalized [-1,1] meshgrids' 
@@ -97,7 +97,7 @@ def creation_HR_grid(im_ref, list_image_input_dir, idx_ref, upscale_factor, colo
             if color=='gray':
                 im_to_register = rgb2gray(im_to_register)
             im_to_register = rescale(im_to_register, 1/upscale_factor)
-            registered_im = computing_regitration_pixel(im_ref, im_to_register, upscale_factor)
+            registered_im = computing_regitration_POI(im_ref, im_to_register, upscale_factor)
 
             # im_sr[im_sr==0] = registered_im[im_sr==0]
             im_sr += registered_im
@@ -272,8 +272,10 @@ def computing_regitration_pixel(im_ref, im_to_register, upscale_factor, display=
 
     return registered_im
 
+
 def PG_method(HR_grid, im_ref, sigma, upscale_factor, it,
-              out_filter=False, intermediary_step=False, save_dir=None, MSE=None, plot_debug=False):
+              out_filter=False, intermediary_step=False, save_dir=None, MSE=None, psf=False,
+              imshow_debug=False, plot_debug_idx=None):
     if intermediary_step:
         if save_dir==None:
             print("A save path should be input : won't save intermediary steps")
@@ -285,22 +287,32 @@ def PG_method(HR_grid, im_ref, sigma, upscale_factor, it,
     sr_size = HR_grid.shape
     print(HR_grid.shape)
     filter = gaussian_2d(sr_size[0], sr_size[1], sigma, sigma)
-    filter[filter<1e-5] = 0.
-    print("/!\ : in filter, forcing 0 when <1e-5")
+    # filter[filter<1e-5] = 0.
+    # print("/!\ : in filter, forcing 0 when <1e-5")
     if MSE!=None:
         err = np.zeros(it)
+    if plot_debug_idx!=None:
+        intensity = np.zeros(it+1)
     # filter = filter_test(sr_size[0], sr_size[1], sigma)
     for i in tqdm(range(it), desc='Main loop'):
         old_im_sr = im_sr
-        old_fft_im_sr = fftshift(fft2(im_sr))
-            
-        # fft_im_sr = old_fft_im_sr * filter
-        fft_im_sr = np.multiply(old_fft_im_sr, filter)
 
-        im_sr = ifft2(ifftshift(fft_im_sr))
+        if not(psf):
+            old_fft_im_sr = fftshift(fft2(old_im_sr))
+
+            if i==0 and save_dir!=None:
+                save_im(os.path.join(save_dir, 'fft.png'), np.log10(np.abs(old_fft_im_sr)))
+                
+            # fft_im_sr = old_fft_im_sr * filter
+            fft_im_sr = np.multiply(old_fft_im_sr, filter)
+
+            im_sr = ifft2(ifftshift(fft_im_sr))
+        
+        else:
+            im_sr = gaussian(old_im_sr, sigma)
 
         # Plotting for debug purposes
-        if plot_debug:
+        if imshow_debug and not(psf):
             # image and FFT between 2 consecutive interations
             plt.figure()
             plt.subplot(221)
@@ -330,19 +342,51 @@ def PG_method(HR_grid, im_ref, sigma, upscale_factor, it,
             plt.close()
             exit()
 
+        # save_path = os.path.join(save_dir, 'it_'+str(i+1))
+        # if not(os.path.exists(save_path)):
+        #     os.makedirs(save_path)
+
+        # plt.figure()
+        # plt.subplot(221)
+        # plt.imshow(old_im_sr.real, 'gray')
+        # plt.title('Image (it = %i)'%(i+1))
+        # plt.colorbar()
+
+        # plt.subplot(222)
+        # plt.imshow(im_sr.real, 'gray')
+        # plt.title('SR before forced (it = %i)'%(i+1))
+        # plt.colorbar()
+
+        # save_im(os.path.join(save_path,'sr_image_old.png'), old_im_sr.real)
+        # save_im(os.path.join(save_path,'sr_image_before_forced.png'), im_sr.real)
+
+
         im_sr[HR_grid>0] = HR_grid[HR_grid>0]
+        if plot_debug_idx!=None:
+            intensity[i+1] = im_sr[plot_debug_idx[0], plot_debug_idx[0]].real
+        # plt.subplot(223)
+        # plt.imshow(im_sr.real, 'gray')
+        # plt.title('SR (it = %i)'%(i+1))
+        # plt.colorbar()
+
+        # plt.show()
+        # plt.savefig(os.path.join(save_path, 'plot.png'), dpi=200)
+        # plt.close()
+        # save_im(os.path.join(save_path,'sr_image.png'), im_sr.real)
+    
 
         if MSE!=None:
-            err[i] = np.sum(np.abs((im_sr - old_im_sr)**2))/(im_sr.shape[0]*im_sr.shape[1])
+            err[i] = np.sum((im_sr.real - old_im_sr.real)**2)/(im_sr.shape[0]*im_sr.shape[1])
         # max_val = np.amax(abs(im_sr))
         # min_val = np.amin(abs(im_sr))
         # im_sr = 255*(abs(im_sr) - min_val) / (max_val-min_val)
+
         
         if intermediary_step and (i+1)%int(it/10) == 0:
             save_path = os.path.join(save_dir, 'it_'+str(i+1))
             if not(os.path.exists(save_path)):
                 os.makedirs(save_path)
-            save_im_new(os.path.join(save_path,'sr_image_new.png'), im_sr.real)
+            save_im(os.path.join(save_path,'sr_image_new.png'), im_sr.real)
     
     if MSE!=None:
         plt.figure(figsize=(10,7))
@@ -357,11 +401,23 @@ def PG_method(HR_grid, im_ref, sigma, upscale_factor, it,
         else:
             plt.savefig(os.path.join(save_dir, 'MSE.png'), dpi=200)
         plt.close()
+    if plot_debug_idx!=None:
+        plt.figure(figsize=(10,7))
+        plt.plot(np.linspace(1,it+1,it+1), intensity)
+        plt.grid(True, axis='both', which='both')
+        plt.title('Intensity of pixel (%i,%i)'%(plot_debug_idx[0], plot_debug_idx[1]))
+        plt.xlabel('iterations')
+        plt.ylabel('Intensity')
+        if save_dir == None:
+            plt.show()
+        else:
+            plt.savefig(os.path.join(save_dir, 'intensity(%ix%i).png'%(plot_debug_idx[0], plot_debug_idx[1])), dpi=200)
+        plt.close()
     
         
     # global_time = time.time() - global_start_time
     # print('Execution time : %0.2f' % (global_time))
-    if not(out_filter):
+    if not(out_filter) or not(psf):
         return im_sr
     else:
         return im_sr, filter
