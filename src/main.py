@@ -13,7 +13,7 @@ parser.add_argument('-d','--display', action='store_true',
 parser.add_argument('-D', '--device', type=str, default='iPhone13Pro',
                     help='Choose the device', choices=['iPhone13Pro'])
 parser.add_argument('-s', '--scene', type=str, default='scene1',
-                    help='Choose the scene', choices=['scene1'])
+                    help='Choose the scene', choices=['scene1','scene2'])
 parser.add_argument('-f', '--upscale_factor', type=int, default='4',
                     help='Choose the upscaling factor')
 parser.add_argument('-i', '--iterations', type=int, default='100',
@@ -24,9 +24,11 @@ parser.add_argument('-c', '--color', type=str, default='gray',
                     help='Choose the color of the output image', choices=['gray','rgb'])
 parser.add_argument('-r', '--ref', type=int, default='0',
                     help='Choose the reference image')
+parser.add_argument('-m', '--method', type=str, default='POI',
+                    help='Choose the registration method', choices=['translation','POI','pixel','itk','handmade'])
 parser.add_argument('-S','--savesteps', action='store_true',
                     help='Save PG method step every 100')
-parser.add_argument('-m','--mse', action='store_true',
+parser.add_argument('-e','--mse', action='store_true',
                     help='Compute MSE between iterations')
 parser.add_argument('-j','--debug', action='store_true',
                     help='Debug')
@@ -44,6 +46,7 @@ it = args.iterations
 sigma = args.sigma
 color = args.color
 idx_ref = args.ref
+method = args.method
 savesteps = args.savesteps
 mse = args.mse
 debug = args.debug
@@ -90,11 +93,12 @@ HR_grid_txt_dir = os.path.join(o_up_dir, 'HR_grid_'+str(idx_ref)+'.txt')
 #     print('Loading ', HR_grid_txt_dir)
 #     HR_grid = np.loadtxt(HR_grid_txt_dir, dtype=float)
 # else:
-#     HR_grid = creation_HR_grid(im_ref, list_image_input_dir, idx_ref, upscale_factor, color)
+#     HR_grid = creation_HR_grid(im_ref, list_image_input_dir, idx_ref, upscale_factor, method, color)
 #     np.savetxt(HR_grid_txt_dir, HR_grid, fmt='%f')
 
 
-HR_grid = creation_HR_grid(im_ref, list_image_input_dir, idx_ref, upscale_factor, color)
+
+HR_grid = creation_HR_grid(im_ref, list_image_input_dir, idx_ref, upscale_factor, method, color)
 image_histogram(HR_grid, 'Histogram HR grid', save_dir=os.path.join(o_up_dir,'hist_HR_grid.png'))
 image_histogram(HR_grid, 'Histogram HR grid without 0', save_dir=os.path.join(o_up_dir,'hist_HR_grid_1.png'))
 np.savetxt(HR_grid_txt_dir, HR_grid, fmt='%f')
