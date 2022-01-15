@@ -25,6 +25,19 @@ def gaussian_2d(h, w,sigma_x, sigma_y, meshgrid=False):
     else:
         return U, V, H
 
+def centered_circle(h,w,sigma):
+    # 'Normalized [-1,1] meshgrids' 
+    u = np.linspace(-(w-1)/2.,(w-1)/2., w)/((w-1)/2)
+    v = np.linspace(-(h-1)/2.,(h-1)/2., h)/((h-1)/2)
+    U,V = np.meshgrid(u,v)
+
+    H = np.zeros(U.shape)
+    for i in range(U.shape[0]):
+        for j in range(U.shape[1]):
+            if U[i][j]**2 + V[i][j]**2 < sigma**2:
+                H[i][j] = 1
+    return H
+
 h,w = (2268, 4032)
 sigma_x,sigma_y =100, 100
 
