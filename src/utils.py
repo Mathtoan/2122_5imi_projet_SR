@@ -8,6 +8,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import itk
 from numpy.fft import fft2, fftshift, ifft2, ifftshift
+from random import randint
 from scipy.ndimage import shift
 from scipy.signal import convolve2d
 from skimage import img_as_ubyte
@@ -67,6 +68,29 @@ def filter_test(h, w,sigma):
                 H[i][j] = 1.
     return H
 
+def centered_circle(h,w,sigma):
+    # 'Normalized [-1,1] meshgrids' 
+    u = np.linspace(-(w-1)/2.,(w-1)/2., w)/((w-1)/2)
+    v = np.linspace(-(h-1)/2.,(h-1)/2., h)/((h-1)/2)
+    U,V = np.meshgrid(u,v)
+
+    H = np.zeros(U.shape)
+    for i in range(U.shape[0]):
+        for j in range(U.shape[1]):
+            if U[i][j]**2 + V[i][j]**2 < sigma**2:
+                H[i][j] = 1
+    return H
+
+def image_histogram(im, title, bins=np.linspace(0,1,256), save_dir=None):
+    plt.figure(figsize=(10,7))
+    plt.hist(im.reshape((im.shape[0]*im.shape[1],)), bins=bins)
+    plt.title(title)
+    plt.grid(True, axis='y')
+    if save_dir==None:
+        plt.show()
+    else:
+        plt.savefig(save_dir, dpi=200)
+    plt.close()
 def creation_HR_grid(im_ref, list_image_input_dir, idx_ref, upscale_factor, method, color):
     print('---- Creation HR grid ----')
     global_start_time = time.time()
@@ -416,8 +440,8 @@ def computing_regitration_itk(im_ref, im_to_register, upscale_factor, display=Fa
 
 
 def PG_method(HR_grid, im_ref, sigma, upscale_factor, it,
-              out_filter=False, intermediary_step=False, save_dir=None, MSE=None, psf=False,
-              imshow_debug=False, plot_debug_idx=None):
+              out_filter=False, intermediary_step=False, save_dir=None, MSE=False, psf=False,
+              imshow_debug=False, plot_debug_intensity=False):
     if intermediary_step:
         if save_dir==None:
             print("A save path should be input : won't save intermediary steps")
@@ -428,29 +452,36 @@ def PG_method(HR_grid, im_ref, sigma, upscale_factor, it,
     im_sr = HR_grid
     sr_size = HR_grid.shape
     print(HR_grid.shape)
-    filter = gaussian_2d(sr_size[0], sr_size[1], sigma, sigma)
+    # filter = gaussian_2d(sr_size[0], sr_size[1], sigma, sigma)
+    filter = centered_circle(sr_size[0], sr_size[1],sigma)
     # filter[filter<1e-5] = 0.
     # print("/!\ : in filter, forcing 0 when <1e-5")
     if MSE!=None:
         err = np.zeros(it)
-    if plot_debug_idx!=None:
+    if plot_debug_intensity:
+        u,v = np.where(HR_grid==0)
+        r = randint(0,len(u)-1)
+
+        plot_debug_idx = (u[r], v[r])
         intensity = np.zeros(it+1)
+        intensity[0] = HR_grid[plot_debug_idx]
     # filter = filter_test(sr_size[0], sr_size[1], sigma)
     for i in tqdm(range(it), desc='Main loop'):
-        old_im_sr = im_sr
+        old_im_sr = im_sr.real
 
-        if not(psf):
+        # Applying filter
+
+        if not(psf): # In Fourier domain
             old_fft_im_sr = fftshift(fft2(old_im_sr))
 
             if i==0 and save_dir!=None:
                 save_im(os.path.join(save_dir, 'fft.png'), np.log10(np.abs(old_fft_im_sr)))
                 
-            # fft_im_sr = old_fft_im_sr * filter
             fft_im_sr = np.multiply(old_fft_im_sr, filter)
 
             im_sr = ifft2(ifftshift(fft_im_sr))
         
-        else:
+        else: # In direct space
             im_sr = gaussian(old_im_sr, sigma)
 
         # Plotting for debug purposes
@@ -500,12 +531,19 @@ def PG_method(HR_grid, im_ref, sigma, upscale_factor, it,
         # plt.colorbar()
 
         # save_im(os.path.join(save_path,'sr_image_old.png'), old_im_sr.real)
+        # np.savetxt(os.path.join(save_path,'sr_image_old.txt'), old_im_sr.real)
+
+        # save_im(os.path.join(save_path, 'fft_before_filter.png'), np.log10(np.abs(old_fft_im_sr)))
+
         # save_im(os.path.join(save_path,'sr_image_before_forced.png'), im_sr.real)
+        # np.savetxt(os.path.join(save_path,'sr_image_before_forced.txt'), im_sr.real)
+
+        # save_im(os.path.join(save_path, 'fft_after_filter.png'), np.log10(np.abs(fft_im_sr)))
 
 
         im_sr[HR_grid>0] = HR_grid[HR_grid>0]
-        if plot_debug_idx!=None:
-            intensity[i+1] = im_sr[plot_debug_idx[0], plot_debug_idx[0]].real
+        if plot_debug_intensity:
+            intensity[i+1] = im_sr[plot_debug_idx].real
         # plt.subplot(223)
         # plt.imshow(im_sr.real, 'gray')
         # plt.title('SR (it = %i)'%(i+1))
@@ -515,9 +553,10 @@ def PG_method(HR_grid, im_ref, sigma, upscale_factor, it,
         # plt.savefig(os.path.join(save_path, 'plot.png'), dpi=200)
         # plt.close()
         # save_im(os.path.join(save_path,'sr_image.png'), im_sr.real)
+        # np.savetxt(os.path.join(save_path,'sr_image.txt'), im_sr.real)
     
 
-        if MSE!=None:
+        if MSE:
             err[i] = np.sum((im_sr.real - old_im_sr.real)**2)/(im_sr.shape[0]*im_sr.shape[1])
         # max_val = np.amax(abs(im_sr))
         # min_val = np.amin(abs(im_sr))
@@ -529,8 +568,9 @@ def PG_method(HR_grid, im_ref, sigma, upscale_factor, it,
             if not(os.path.exists(save_path)):
                 os.makedirs(save_path)
             save_im(os.path.join(save_path,'sr_image_new.png'), im_sr.real)
+            image_histogram(im_sr, 'Histogram SR Image (it=%i)'%(i+1), save_dir=os.path.join(save_path,'hist_im_sr.png'))
     
-    if MSE!=None:
+    if MSE:
         plt.figure(figsize=(10,7))
         plt.plot(np.linspace(1,it,it), err)
         plt.yscale('log')
@@ -543,9 +583,10 @@ def PG_method(HR_grid, im_ref, sigma, upscale_factor, it,
         else:
             plt.savefig(os.path.join(save_dir, 'MSE.png'), dpi=200)
         plt.close()
-    if plot_debug_idx!=None:
+    if plot_debug_intensity:
         plt.figure(figsize=(10,7))
-        plt.plot(np.linspace(1,it+1,it+1), intensity)
+        plt.plot(np.linspace(0,it,it+1), intensity)
+        plt.axis([0, it, 0, 1])
         plt.grid(True, axis='both', which='both')
         plt.title('Intensity of pixel (%i,%i)'%(plot_debug_idx[0], plot_debug_idx[1]))
         plt.xlabel('iterations')
@@ -559,7 +600,7 @@ def PG_method(HR_grid, im_ref, sigma, upscale_factor, it,
         
     # global_time = time.time() - global_start_time
     # print('Execution time : %0.2f' % (global_time))
-    if not(out_filter) or not(psf):
+    if not(out_filter) or psf:
         return im_sr
     else:
         return im_sr, filter

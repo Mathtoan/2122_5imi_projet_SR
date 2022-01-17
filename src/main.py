@@ -96,7 +96,11 @@ HR_grid_txt_dir = os.path.join(o_up_dir, 'HR_grid_'+str(idx_ref)+'.txt')
 #     HR_grid = creation_HR_grid(im_ref, list_image_input_dir, idx_ref, upscale_factor, method, color)
 #     np.savetxt(HR_grid_txt_dir, HR_grid, fmt='%f')
 
+
+
 HR_grid = creation_HR_grid(im_ref, list_image_input_dir, idx_ref, upscale_factor, method, color)
+image_histogram(HR_grid, 'Histogram HR grid', save_dir=os.path.join(o_up_dir,'hist_HR_grid.png'))
+image_histogram(HR_grid, 'Histogram HR grid without 0', save_dir=os.path.join(o_up_dir,'hist_HR_grid_1.png'))
 np.savetxt(HR_grid_txt_dir, HR_grid, fmt='%f')
 
 io.imsave(os.path.join(o_up_dir,'hr_grid_'+str(idx_ref)+'.png'), float64_to_uint8(HR_grid))
@@ -105,13 +109,14 @@ save_im(os.path.join(o_up_dir,'lr_image_'+str(idx_ref)+'.png'), im_ref, new=True
 # exit()
 
 #%% Papoulis-Gerchberg method
+image_histogram(im_groundtruth, 'Histogram groundtruth', save_dir=os.path.join(o_up_dir,'hist_gt.png'))
 if debug:
     im_sr,H = PG_method(HR_grid, im_ref, sigma, upscale_factor, it,
                         save_dir=o_sigma_dir, MSE=mse, out_filter=True, intermediary_step=savesteps,
-                        plot_debug_idx=(907, 2470), psf=psf)
+                        plot_debug_intensity=True)
 else:
     im_sr,H = PG_method(HR_grid, im_ref, sigma, upscale_factor, it,
-                        save_dir=o_sigma_dir, MSE=mse, out_filter=True, intermediary_step=savesteps)
+                        save_dir=o_sigma_dir, MSE=mse, out_filter=True, intermediary_step=savesteps, plot_debug_intensity=True)
 io.imsave(os.path.join(o_sigma_dir, 'filter.png'), float64_to_uint8(H))
 io.imsave(os.path.join(o_it_dir,'sr_image_new.png'), float64_to_uint8(im_sr.real))
 
