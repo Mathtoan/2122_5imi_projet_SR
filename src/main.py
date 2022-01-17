@@ -100,7 +100,7 @@ HR_grid_txt_dir = os.path.join(o_up_dir, 'HR_grid_'+str(idx_ref)+'.txt')
 
 HR_grid = creation_HR_grid(im_ref, list_image_input_dir, idx_ref, upscale_factor, method, color)
 image_histogram(HR_grid, 'Histogram HR grid', save_dir=os.path.join(o_up_dir,'hist_HR_grid.png'))
-image_histogram(HR_grid, 'Histogram HR grid without 0', save_dir=os.path.join(o_up_dir,'hist_HR_grid_1.png'))
+image_histogram(HR_grid, 'Histogram HR grid without 0', save_dir=os.path.join(o_up_dir,'hist_HR_grid_1.png'), bins=np.linspace(1/255,1,256))
 np.savetxt(HR_grid_txt_dir, HR_grid, fmt='%f')
 
 io.imsave(os.path.join(o_up_dir,'hr_grid_'+str(idx_ref)+'.png'), float64_to_uint8(HR_grid))
