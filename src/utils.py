@@ -91,6 +91,7 @@ def image_histogram(im, title, bins=np.linspace(0,1,256), save_dir=None):
     else:
         plt.savefig(save_dir, dpi=200)
     plt.close()
+    
 def creation_HR_grid(im_ref, list_image_input_dir, idx_ref, upscale_factor, method, color):
     print('---- Creation HR grid ----')
     global_start_time = time.time()
@@ -116,6 +117,7 @@ def creation_HR_grid(im_ref, list_image_input_dir, idx_ref, upscale_factor, meth
             im_ref_up[idx_h_ref][idx_w_ref] = im_ref[h][w]
     im_sr = np.copy(im_ref_up)
     cpt_grid[im_ref_up != 0] += 1
+    image_histogram(im_sr, 'im_sr_0', bins=np.linspace(1/255,1,255), save_dir='output/hist/im_sr_0')
 
     # print(np.amin(im_sr), np.amax(im_sr))
     print('######### idx_ref =', idx_ref, '#########')
@@ -131,20 +133,19 @@ def creation_HR_grid(im_ref, list_image_input_dir, idx_ref, upscale_factor, meth
             print("registered: ",registered_im.shape)
             # plt.imsave("registered_"+str(k)+".png",im_ref+registered_im, cmap='gray')
             
-            im_ref_up[:10,:10] = 1
-            registered_im[sr_size[0]-10:, sr_size[1]-10:] = 1
+            # im_ref_up[:10,:10] = 1
+            # registered_im[sr_size[0]-10:, sr_size[1]-10:] = 1
             plt.imsave("registered_"+str(k)+".png",im_ref_up+registered_im, cmap='gray')
             
             # im_sr[im_sr==0] = registered_im[im_sr==0]
             im_sr += registered_im
             cpt_grid[registered_im != 0] += 1
             
+            image_histogram(im_sr/cpt_grid, 'im_sr_'+str(k), bins=np.linspace(1/255,1,255), save_dir='output/hist/im_sr_'+str(k))
+            
             # exit()
     
     im_sr[im_sr != 0] = im_sr[im_sr != 0] / cpt_grid[im_sr != 0]
-    # print("avant",np.amin(im_sr), np.amax(im_sr))
-    # im_sr = (im_sr - np.amin(im_sr)) / (np.amax(im_sr) - np.amin(im_sr))
-    # print("après",np.amin(im_sr), np.amax(im_sr))
             
     global_time = time.time() - global_start_time
     print('Execution time : %0.2fs' % (global_time))
@@ -343,8 +344,9 @@ def computing_regitration_itk(im_ref, im_to_register, upscale_factor, display=Fa
         for w in range(width):
             idx_h_ref = h*upscale_factor
             idx_w_ref = w*upscale_factor
-            im_to_register_up[idx_h_ref][idx_w_ref] = im_to_register[h][w]     
+            im_to_register_up[idx_h_ref][idx_w_ref] = im_to_register[h][w]
     im_to_register_up_itk = itk.GetImageFromArray(im_to_register_up)
+    im_to_register_up_itk_type = type(im_to_register_up_itk)
 
     # ----------------------
     # Optimiseur
@@ -371,7 +373,8 @@ def computing_regitration_itk(im_ref, im_to_register, upscale_factor, display=Fa
     # Interpolateur
     # ----------------------
 
-    interpolator = itk.LinearInterpolateImageFunction[im_to_register_itk_type, itk.D].New()
+    # interpolator = itk.LinearInterpolateImageFunction[im_to_register_itk_type, itk.D].New()
+    interpolator = itk.NearestNeighborInterpolateImageFunction[im_to_register_up_itk_type, itk.D].New()
 
     # ----------------------
     # Metrics
