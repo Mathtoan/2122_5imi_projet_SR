@@ -1,17 +1,13 @@
-import math
 import os
-import shutil
 import time
 
 import cv2
 import matplotlib.pyplot as plt
 import numpy as np
 import itk
-from numpy.core.fromnumeric import amax
 from numpy.fft import fft2, fftshift, ifft2, ifftshift
 from random import randint
 from scipy.ndimage import shift
-from scipy.signal import convolve2d
 from skimage import img_as_ubyte
 from skimage import io
 from skimage.color import rgb2gray
@@ -30,13 +26,14 @@ def display_progression(it, it_total): # Old, should use tqdm instead
         print('Loading '+progress_bar+' %.2f%%' %(progression))
         print('done')
 
-def format_interval(t):
+def format_time(t):
+    ms = int((t - int(t))*100)
     mins, s = divmod(int(t), 60)
     h, m = divmod(mins, 60)
     if h:
-        return '{0:d}:{1:02d}:{2:02d}'.format(h, m, s)
+        return '{0:d}:{1:02d}:{2:02d}.{3:03d}'.format(h, m, s, ms)
     else:
-        return '{0:02d}:{1:02d}'.format(m, s)
+        return '{0:02d}:{1:02d}.{2:03d}'.format(m, s, ms)
 
 def float64_to_uint8(x):
     if x.dtype == np.uint8:
@@ -160,8 +157,8 @@ def creation_HR_grid(im_ref, list_image_input_dir, idx_ref, upscale_factor, meth
     
     im_sr[cpt_grid!=0] = im_sr[cpt_grid!=0] / cpt_grid[cpt_grid!=0]
             
-    global_time = time.time() - global_start_time
-    print('Execution time : %0.2fs' % (global_time))
+    global_time_str = format_time(time.time() - global_start_time)
+    print('Execution time : ' + global_time_str)
     return im_sr
 
 def computing_regitration_translation(im_ref, im_to_register, upscale_factor, display=False):
@@ -414,12 +411,12 @@ def computing_regitration_itk(im_ref, im_to_register, upscale_factor, display=Fa
     final_transform = registration_filter.GetTransform()
     finalParameters = final_transform.GetParameters() # Récupération des paramètres de la transformation
 
-    # finalParameters[1] = itk.size(im_to_register_up_itk)[0]/2
-    # finalParameters[2] = itk.size(im_to_register_up_itk)[1]/2
-    # finalParameters[3] = finalParameters[3]*upscale_factor
-    # finalParameters[4] = finalParameters[4]*upscale_factor
+    finalParameters[1] = itk.size(im_to_register_up_itk)[0]/2
+    finalParameters[2] = itk.size(im_to_register_up_itk)[1]/2
+    finalParameters[3] = finalParameters[3]*upscale_factor
+    finalParameters[4] = finalParameters[4]*upscale_factor
     
-    # final_transform.SetParameters(finalParameters)
+    final_transform.SetParameters(finalParameters)
     
     # ----------------------
     # Apply last transform
@@ -573,7 +570,7 @@ def PG_method(HR_grid, im_ref, sigma, upscale_factor, it,
         # MSE.append(np.sum((im_sr.real - old_im_sr.real)**2)/(im_sr.shape[0]*im_sr.shape[1]))
         MSE.append(np.amax((im_sr.real - old_im_sr.real)**2))
 
-        if len(MSE)>2:
+        if len(MSE)>1:
             err = abs(MSE[-1]-MSE[-2])
             print(MSE[-1], MSE[-2], err)
 
@@ -585,7 +582,7 @@ def PG_method(HR_grid, im_ref, sigma, upscale_factor, it,
                     os.makedirs(save_path)
                 save_im(os.path.join(save_path,'sr_image_new.png'), im_sr.real)
                 image_histogram(im_sr, 'Histogram SR Image (it=%i)'%(i), save_dir=os.path.join(save_path,'hist_im_sr.png'))
-    global_time_str = format_interval(time.time() - global_start_time)
+    global_time_str = format_time(time.time() - global_start_time)
     print('Execution time : ' + global_time_str)
 
     save_path = os.path.join(save_dir, 'it_'+str(i))
@@ -597,6 +594,12 @@ def PG_method(HR_grid, im_ref, sigma, upscale_factor, it,
     save_im(os.path.join(save_path, 'fft_before_filter.png'), np.log10(np.abs(old_fft_im_sr)))
     save_im(os.path.join(save_path, 'fft_after_filter.png'), np.log10(np.abs(fft_im_sr)))
     save_im(os.path.join(save_path,'sr_image.png'), im_sr.real)
+
+    plt.figure(figsize=(10,7))
+    plt.imshow(im_sr.real, 'gray')
+    plt.colorbar()
+    plt.show()
+    plt.close()
     
     # Plotting MSE
     plt.figure(figsize=(10,7))
