@@ -13,7 +13,7 @@ parser.add_argument('-d','--display', action='store_true',
 parser.add_argument('-D', '--device', type=str, default='iPhone13Pro',
                     help='Choose the device', choices=['iPhone13Pro'])
 parser.add_argument('-s', '--scene', type=str, default='scene1',
-                    help='Choose the scene', choices=['scene1','scene2'])
+                    help='Choose the scene', choices=['scene1','scene2', 'scene3'])
 parser.add_argument('-f', '--upscale_factor', type=int, default='4',
                     help='Choose the upscaling factor')
 parser.add_argument('-i', '--iterations', type=int, default='100',
@@ -26,10 +26,8 @@ parser.add_argument('-r', '--ref', type=int, default='0',
                     help='Choose the reference image')
 parser.add_argument('-m', '--method', type=str, default='POI',
                     help='Choose the registration method', choices=['translation','POI','pixel','itk','handmade'])
-parser.add_argument('-S','--savesteps', action='store_true',
-                    help='Save PG method step every 100')
-parser.add_argument('-e','--mse', action='store_true',
-                    help='Compute MSE between iterations')
+parser.add_argument('-S', '--savesteps', type=float, default='10',
+                    help='Save PG method n steps')
 parser.add_argument('-j','--debug', action='store_true',
                     help='Debug')
 parser.add_argument('-p','--psf', action='store_true',
@@ -48,7 +46,6 @@ color = args.color
 idx_ref = args.ref
 method = args.method
 savesteps = args.savesteps
-mse = args.mse
 debug = args.debug
 psf = args.psf
 
@@ -89,19 +86,19 @@ im_ref = rescale(im_groundtruth, 1/upscale_factor)
 HR_grid_txt_dir = os.path.join(o_up_dir, 'HR_grid_'+str(idx_ref)+'.txt')
 
 # Load saved HR grid if already generated
-# if os.path.exists(HR_grid_txt_dir):
-#     print('Loading ', HR_grid_txt_dir)
-#     HR_grid = np.loadtxt(HR_grid_txt_dir, dtype=float)
-# else:
-#     HR_grid = creation_HR_grid(im_ref, list_image_input_dir, idx_ref, upscale_factor, method, color)
-#     np.savetxt(HR_grid_txt_dir, HR_grid, fmt='%f')
+if os.path.exists(HR_grid_txt_dir):
+    print('Loading ', HR_grid_txt_dir)
+    HR_grid = np.loadtxt(HR_grid_txt_dir, dtype=float)
+else:
+    HR_grid = creation_HR_grid(im_ref, list_image_input_dir, idx_ref, upscale_factor, method, color)
+    np.savetxt(HR_grid_txt_dir, HR_grid, fmt='%f')
 
 
 
-HR_grid = creation_HR_grid(im_ref, list_image_input_dir, idx_ref, upscale_factor, method, color)
+# HR_grid = creation_HR_grid(im_ref, list_image_input_dir, idx_ref, upscale_factor, method, color)
 image_histogram(HR_grid, 'Histogram HR grid', save_dir=os.path.join(o_up_dir,'hist_HR_grid.png'))
 image_histogram(HR_grid, 'Histogram HR grid without 0', save_dir=os.path.join(o_up_dir,'hist_HR_grid_1.png'), bins=np.linspace(1/255,1,256))
-np.savetxt(HR_grid_txt_dir, HR_grid, fmt='%f')
+# np.savetxt(HR_grid_txt_dir, HR_grid, fmt='%f')
 
 io.imsave(os.path.join(o_up_dir,'hr_grid_'+str(idx_ref)+'.png'), float64_to_uint8(HR_grid))
 save_im(os.path.join(o_up_dir,'groundtruth.png'), im_groundtruth, new=True)
@@ -112,11 +109,11 @@ save_im(os.path.join(o_up_dir,'lr_image_'+str(idx_ref)+'.png'), im_ref, new=True
 image_histogram(im_groundtruth, 'Histogram groundtruth', save_dir=os.path.join(o_up_dir,'hist_gt.png'))
 if debug:
     im_sr,H = PG_method(HR_grid, im_ref, sigma, upscale_factor, it,
-                        save_dir=o_sigma_dir, MSE=mse, out_filter=True, intermediary_step=savesteps,
+                        save_dir=o_sigma_dir, out_filter=True, intermediary_step=savesteps,
                         plot_debug_intensity=True)
 else:
     im_sr,H = PG_method(HR_grid, im_ref, sigma, upscale_factor, it,
-                        save_dir=o_sigma_dir, MSE=mse, out_filter=True, intermediary_step=savesteps, plot_debug_intensity=True)
+                        save_dir=o_sigma_dir, out_filter=True, intermediary_step=savesteps, plot_debug_intensity=True)
 io.imsave(os.path.join(o_sigma_dir, 'filter.png'), float64_to_uint8(H))
 io.imsave(os.path.join(o_it_dir,'sr_image_new.png'), float64_to_uint8(im_sr.real))
 
