@@ -515,30 +515,31 @@ def PG_method(HR_grid, im_ref, sigma, upscale_factor, it,
             plt.close()
             exit()
 
-        # save_path = os.path.join(save_dir, 'it_'+str(i+1))
-        # if not(os.path.exists(save_path)):
-        #     os.makedirs(save_path)
+        if i+1 == 1 or i+1 == 10 or i+1 == 100 or i+1 == 1000 :
+            save_path = os.path.join(save_dir, 'it_'+str(i+1))
+            if not(os.path.exists(save_path)):
+                os.makedirs(save_path)
 
-        # plt.figure()
-        # plt.subplot(221)
-        # plt.imshow(old_im_sr.real, 'gray')
-        # plt.title('Image (it = %i)'%(i+1))
-        # plt.colorbar()
+            # plt.figure()
+            # plt.subplot(221)
+            # plt.imshow(old_im_sr.real, 'gray')
+            # plt.title('Image (it = %i)'%(i+1))
+            # plt.colorbar()
 
-        # plt.subplot(222)
-        # plt.imshow(im_sr.real, 'gray')
-        # plt.title('SR before forced (it = %i)'%(i+1))
-        # plt.colorbar()
+            # plt.subplot(222)
+            # plt.imshow(im_sr.real, 'gray')
+            # plt.title('SR before forced (it = %i)'%(i+1))
+            # plt.colorbar()
 
-        # save_im(os.path.join(save_path,'sr_image_old.png'), old_im_sr.real)
-        # np.savetxt(os.path.join(save_path,'sr_image_old.txt'), old_im_sr.real)
+            save_im(os.path.join(save_path,'sr_image_old.png'), old_im_sr.real)
+            # np.savetxt(os.path.join(save_path,'sr_image_old.txt'), old_im_sr.real)
 
-        # save_im(os.path.join(save_path, 'fft_before_filter.png'), np.log10(np.abs(old_fft_im_sr)))
+            save_im(os.path.join(save_path, 'fft_before_filter.png'), np.log10(np.abs(old_fft_im_sr)))
 
-        # save_im(os.path.join(save_path,'sr_image_before_forced.png'), im_sr.real)
-        # np.savetxt(os.path.join(save_path,'sr_image_before_forced.txt'), im_sr.real)
+            save_im(os.path.join(save_path,'sr_image_before_forced.png'), im_sr.real)
+            # np.savetxt(os.path.join(save_path,'sr_image_before_forced.txt'), im_sr.real)
 
-        # save_im(os.path.join(save_path, 'fft_after_filter.png'), np.log10(np.abs(fft_im_sr)))
+            save_im(os.path.join(save_path, 'fft_after_filter.png'), np.log10(np.abs(fft_im_sr)))
 
 
         im_sr[HR_grid>0] = HR_grid[HR_grid>0]
@@ -552,9 +553,14 @@ def PG_method(HR_grid, im_ref, sigma, upscale_factor, it,
         # plt.show()
         # plt.savefig(os.path.join(save_path, 'plot.png'), dpi=200)
         # plt.close()
-        # save_im(os.path.join(save_path,'sr_image.png'), im_sr.real)
-        # np.savetxt(os.path.join(save_path,'sr_image.txt'), im_sr.real)
-    
+        if i+1 == 1 or i+1 == 10 or i+1 == 100 or i+1 == 1000 :
+            save_im(os.path.join(save_path,'sr_image.png'), im_sr.real)
+            plt.figure()
+            plt.imshow(im_sr.real, 'gray', vmin=0, vmax=1)
+            plt.title('it = %i'%(i+1))
+            plt.colorbar()
+            plt.savefig(os.path.join(save_path, 'plot.png'), dpi=200)
+            plt.close()
 
         if MSE:
             err[i] = np.sum((im_sr.real - old_im_sr.real)**2)/(im_sr.shape[0]*im_sr.shape[1])
