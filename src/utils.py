@@ -487,7 +487,7 @@ def computing_regitration_itk(im_ref, im_to_register, upscale_factor, display=Fa
 
 def PG_method(HR_grid, sigma,
               out_filter=False, intermediary_step=None, eps=1e-5,save_dir=None, psf=False,
-              imshow_debug=False, plot_debug_intensity=False):
+              imshow_debug=False, plot_debug_intensity=False, max_steps=100):
     
     if intermediary_step!=None:
         if save_dir==None:
@@ -496,6 +496,8 @@ def PG_method(HR_grid, sigma,
     
     global_start_time = time.time()
     print('---- Papoulis–Gerchberg method ----')
+    print("initialization : generating filter")
+    initialization_start_time = time.time()
 
     im_sr = HR_grid
     sr_size = HR_grid.shape
@@ -503,6 +505,9 @@ def PG_method(HR_grid, sigma,
 
     # filter = gaussian_2d(sr_size[0], sr_size[1], sigma, sigma)
     filter = centered_circle(sr_size[0], sr_size[1],sigma)
+    initialization_time_str = format_time(time.time() - initialization_start_time)
+    global_time_str = format_time(time.time() - global_start_time)
+    print('Execution time : ' + initialization_time_str + '| Total execution time : ' + global_time_str)
 
     err = eps+1e3
     MSE = []
@@ -514,10 +519,11 @@ def PG_method(HR_grid, sigma,
         intensity = [0]
 
     i = 0
-    while err>eps or i<2:
+    while (err>eps or i<2) and i<max_steps:
         i+=1
+            
         interation_start_time = time.time()
-        print('it = %i'%(i))
+        print('step = %i'%(i))
         old_im_sr = im_sr.real
 
         # -------------
@@ -594,6 +600,7 @@ def PG_method(HR_grid, sigma,
         # -------------------------
         if intermediary_step!=None:
             if (i)%intermediary_step == 0:
+                print("Saving step : %i"%(i))
                 save_path = os.path.join(save_dir, 'it_'+str(i))
                 if not(os.path.exists(save_path)):
                     os.makedirs(save_path)
@@ -601,12 +608,13 @@ def PG_method(HR_grid, sigma,
                 image_histogram(im_sr, 'Histogram SR Image (it=%i)'%(i), save_dir=os.path.join(save_path,'hist_im_sr.png'))
 
         interation_time_str = format_time(time.time() - interation_start_time)
+        global_time_str = format_time(time.time() - global_start_time)
 
 
-        print('Execution time : ' + interation_time_str)
-
-    global_time_str = format_time(time.time() - global_start_time)
-    print('Total execution time : ' + global_time_str)
+        print('Execution time : ' + interation_time_str + '| Total execution time : ' + global_time_str)
+    
+    if i==max_steps:
+        print("/!\ Max steps reached (%i) /!\ "%(max_steps))
 
     save_path = os.path.join(save_dir, 'it_'+str(i))
     if not(os.path.exists(save_path)):
