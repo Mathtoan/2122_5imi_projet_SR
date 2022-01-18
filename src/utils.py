@@ -507,7 +507,7 @@ def PG_method(HR_grid, sigma,
     filter = centered_circle(sr_size[0], sr_size[1],sigma)
     initialization_time_str = format_time(time.time() - initialization_start_time)
     global_time_str = format_time(time.time() - global_start_time)
-    print('Execution time : ' + initialization_time_str + '| Total execution time : ' + global_time_str)
+    print('Execution time : ' + initialization_time_str + ' | Total execution time : ' + global_time_str)
 
     err = eps+1e3
     MSE = []
@@ -611,7 +611,7 @@ def PG_method(HR_grid, sigma,
         global_time_str = format_time(time.time() - global_start_time)
 
 
-        print('Execution time : ' + interation_time_str + '| Total execution time : ' + global_time_str)
+        print('Execution time : ' + interation_time_str + ' | Total execution time : ' + global_time_str)
     
     if i==max_steps:
         print("/!\ Max steps reached (%i) /!\ "%(max_steps))
