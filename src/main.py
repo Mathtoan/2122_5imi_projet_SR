@@ -2,8 +2,6 @@
 import argparse
 import os
 
-from numpy import float64
-
 from utils import *
 
 #%% Parser
@@ -16,8 +14,6 @@ parser.add_argument('-s', '--scene', type=str, default='scene1',
                     help='Choose the scene', choices=['scene1','scene2', 'scene3'])
 parser.add_argument('-f', '--upscale_factor', type=int, default='4',
                     help='Choose the upscaling factor')
-parser.add_argument('-i', '--iterations', type=int, default='100',
-                    help='Choose the number of iterations')
 parser.add_argument('-o', '--sigma', type=float, default='0.05',
                     help='Choose the value of sigma')
 parser.add_argument('-c', '--color', type=str, default='gray',
@@ -26,7 +22,7 @@ parser.add_argument('-r', '--ref', type=int, default='0',
                     help='Choose the reference image')
 parser.add_argument('-m', '--method', type=str, default='POI',
                     help='Choose the registration method', choices=['translation','POI','pixel','itk','handmade'])
-parser.add_argument('-S', '--savesteps', type=float, default='10',
+parser.add_argument('-i', '--intermediary_step', type=float,
                     help='Save PG method n steps')
 parser.add_argument('-j','--debug', action='store_true',
                     help='Debug')
@@ -45,7 +41,7 @@ sigma = args.sigma
 color = args.color
 idx_ref = args.ref
 method = args.method
-savesteps = args.savesteps
+intermediary_step = args.intermediary_step
 debug = args.debug
 psf = args.psf
 
@@ -65,10 +61,9 @@ else:
     output_dir = os.path.join('output', args.device, args.scene)
 o_up_dir = os.path.join(output_dir, 'up_'+str(upscale_factor))
 o_sigma_dir = os.path.join(o_up_dir, 'sigma_'+str(sigma))
-o_it_dir = os.path.join(o_sigma_dir, 'it_'+str(it))
 
-if not(os.path.exists(o_it_dir)):
-    os.makedirs(o_it_dir)
+if not(os.path.exists(o_sigma_dir)):
+    os.makedirs(o_sigma_dir)
 
 list_image_input_dir = [os.path.join(input_dir, i) for i in os.listdir(input_dir) if not i.startswith('.')]
 list_image_input_dir.sort()
@@ -108,14 +103,13 @@ save_im(os.path.join(o_up_dir,'lr_image_'+str(idx_ref)+'.png'), im_ref, new=True
 #%% Papoulis-Gerchberg method
 image_histogram(im_groundtruth, 'Histogram groundtruth', save_dir=os.path.join(o_up_dir,'hist_gt.png'))
 if debug:
-    im_sr,H = PG_method(HR_grid, im_ref, sigma, upscale_factor, it,
-                        save_dir=o_sigma_dir, out_filter=True, intermediary_step=savesteps,
+    im_sr,H = PG_method(HR_grid,
+                        save_dir=o_sigma_dir, out_filter=True, intermediary_step=intermediary_step,
                         plot_debug_intensity=True)
 else:
-    im_sr,H = PG_method(HR_grid, im_ref, sigma, upscale_factor, it,
-                        save_dir=o_sigma_dir, out_filter=True, intermediary_step=savesteps, plot_debug_intensity=True)
+    im_sr,H = PG_method(HR_grid, sigma,
+                        save_dir=o_sigma_dir, out_filter=True, intermediary_step=intermediary_step, plot_debug_intensity=True)
 io.imsave(os.path.join(o_sigma_dir, 'filter.png'), float64_to_uint8(H))
-io.imsave(os.path.join(o_it_dir,'sr_image_new.png'), float64_to_uint8(im_sr.real))
 
 if color=='gray':
     colmap='gray'

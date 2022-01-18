@@ -485,16 +485,15 @@ def computing_regitration_itk(im_ref, im_to_register, upscale_factor, display=Fa
     return registered_im
 
 
-def PG_method(HR_grid, im_ref, sigma, upscale_factor, it,
+def PG_method(HR_grid, sigma,
               out_filter=False, intermediary_step=None, eps=1e-5,save_dir=None, psf=False,
               imshow_debug=False, plot_debug_intensity=False):
     if intermediary_step!=None:
         if save_dir==None:
             print("A save path should be input : won't save intermediary steps")
             intermediary_step = None
-    print('---- Papoulis–Gerchberg method (real)----')
     global_start_time = time.time()
-    lr_size = im_ref.shape
+    print('---- Papoulis–Gerchberg method ----')
     im_sr = HR_grid
     sr_size = HR_grid.shape
     print(HR_grid.shape)
@@ -513,6 +512,7 @@ def PG_method(HR_grid, im_ref, sigma, upscale_factor, it,
     i = 0
     while err>eps or i<2:
         i+=1
+        interation_start_time = time.time()
         print('it = %i'%(i))
         old_im_sr = im_sr.real
 
@@ -572,7 +572,6 @@ def PG_method(HR_grid, im_ref, sigma, upscale_factor, it,
 
         if len(MSE)>1:
             err = abs(MSE[-1]-MSE[-2])
-            print(MSE[-1], MSE[-2], err)
 
         
         if intermediary_step!=None:
@@ -582,8 +581,12 @@ def PG_method(HR_grid, im_ref, sigma, upscale_factor, it,
                     os.makedirs(save_path)
                 save_im(os.path.join(save_path,'sr_image_new.png'), im_sr.real)
                 image_histogram(im_sr, 'Histogram SR Image (it=%i)'%(i), save_dir=os.path.join(save_path,'hist_im_sr.png'))
+
+        interation_time_str = format_time(time.time() - interation_start_time)
+        print('Execution time : ' + interation_time_str)
+
     global_time_str = format_time(time.time() - global_start_time)
-    print('Execution time : ' + global_time_str)
+    print('Total execution time : ' + global_time_str)
 
     save_path = os.path.join(save_dir, 'it_'+str(i))
     if not(os.path.exists(save_path)):
