@@ -7,6 +7,7 @@ import cv2
 import matplotlib.pyplot as plt
 import numpy as np
 import itk
+from numpy.core.fromnumeric import amax
 from numpy.fft import fft2, fftshift, ifft2, ifftshift
 from random import randint
 from scipy.ndimage import shift
@@ -103,9 +104,8 @@ def creation_HR_grid(im_ref, list_image_input_dir, idx_ref, upscale_factor, meth
     else:
         print('Undefined color')
         exit()
-    # im_sr = np.zeros(sr_size)
     im_ref_up = np.zeros(sr_size)
-    cpt_grid = np.ones(sr_size)
+    cpt_grid = np.zeros(sr_size)
     print("sr size = ", sr_size)
 
     for h in range(lr_size[0]):
@@ -141,11 +141,16 @@ def creation_HR_grid(im_ref, list_image_input_dir, idx_ref, upscale_factor, meth
             im_sr += registered_im
             cpt_grid[registered_im != 0] += 1
             
-            image_histogram(im_sr/cpt_grid, 'im_sr_'+str(k), bins=np.linspace(1/255,1,255), save_dir='output/hist/im_sr_'+str(k))
+            save_sr = np.copy(im_sr)
+            save_sr[cpt_grid!=0] = save_sr[cpt_grid!=0]/cpt_grid[cpt_grid!=0]
+            save_sr = save_sr.reshape(sr_size)
+            print(save_sr.shape)
+            
+            image_histogram(save_sr, 'im_sr_'+str(k), bins=np.linspace(1/255,1,255), save_dir='output/hist/im_sr_'+str(k))
             
             # exit()
     
-    im_sr[im_sr != 0] = im_sr[im_sr != 0] / cpt_grid[im_sr != 0]
+    im_sr[cpt_grid!=0] = im_sr[cpt_grid!=0] / cpt_grid[cpt_grid!=0]
             
     global_time = time.time() - global_start_time
     print('Execution time : %0.2fs' % (global_time))
@@ -346,7 +351,6 @@ def computing_regitration_itk(im_ref, im_to_register, upscale_factor, display=Fa
             idx_w_ref = w*upscale_factor
             im_to_register_up[idx_h_ref][idx_w_ref] = im_to_register[h][w]
     im_to_register_up_itk = itk.GetImageFromArray(im_to_register_up)
-    im_to_register_up_itk_type = type(im_to_register_up_itk)
 
     # ----------------------
     # Optimiseur
@@ -354,7 +358,8 @@ def computing_regitration_itk(im_ref, im_to_register, upscale_factor, display=Fa
     optimizer = itk.RegularStepGradientDescentOptimizer.New() # Instance de la classe d'optimiseur choisie
     optimizer.SetMaximumStepLength(.1)
     optimizer.SetMinimumStepLength(.001)
-    optimizer.SetNumberOfIterations(2000)
+    optimizer.SetNumberOfIterations(1000)
+    # optimizer.SetNumberOfIterations(200)
     optimizer.SetScales([500, 1, 1, 1, 1])
     # ----------------------
     # initial Parameter
@@ -373,8 +378,7 @@ def computing_regitration_itk(im_ref, im_to_register, upscale_factor, display=Fa
     # Interpolateur
     # ----------------------
 
-    # interpolator = itk.LinearInterpolateImageFunction[im_to_register_itk_type, itk.D].New()
-    interpolator = itk.NearestNeighborInterpolateImageFunction[im_to_register_up_itk_type, itk.D].New()
+    interpolator = itk.NearestNeighborInterpolateImageFunction[im_to_register_itk_type, itk.D].New()
 
     # ----------------------
     # Metrics
@@ -402,18 +406,27 @@ def computing_regitration_itk(im_ref, im_to_register, upscale_factor, display=Fa
     final_transform = registration_filter.GetTransform()
     finalParameters = final_transform.GetParameters() # Récupération des paramètres de la transformation
 
-    # finalParameters[0] = 0
-    finalParameters[1] = itk.size(im_to_register_up_itk)[0]/2
-    finalParameters[2] = itk.size(im_to_register_up_itk)[1]/2
-    finalParameters[3] = finalParameters[3]*upscale_factor
-    finalParameters[4] = finalParameters[4]*upscale_factor
+    # finalParameters[1] = itk.size(im_to_register_up_itk)[0]/2
+    # finalParameters[2] = itk.size(im_to_register_up_itk)[1]/2
+    # finalParameters[3] = finalParameters[3]*upscale_factor
+    # finalParameters[4] = finalParameters[4]*upscale_factor
     
-    final_transform.SetParameters(finalParameters)
+    # final_transform.SetParameters(finalParameters)
     
     # ----------------------
     # Apply last transform
     # ----------------------
+    
+    test_im = np.zeros(im_to_register_itk.GetLargestPossibleRegion().GetSize())
+    test_im[50:60,50:60] = 1
+    test_im = itk.GetImageFromArray(test_im)
+    test_im_type = type(test_im)
 
+    # resample_filter = itk.ResampleImageFilter[im_ref_itk_type,test_im_type].New() #Instance de la classe de ré-échantillonnage
+    # resample_filter.SetInput(test_im) # Image d'entrée
+    # resample_filter.SetTransform(final_transform)
+    # resample_filter.SetSize(test_im.GetLargestPossibleRegion().GetSize())
+    
     resample_filter = itk.ResampleImageFilter[im_ref_itk_type,im_to_register_itk_type].New() #Instance de la classe de ré-échantillonnage
     resample_filter.SetInput(im_to_register_up_itk) # Image d'entrée
     resample_filter.SetTransform(final_transform)
@@ -421,6 +434,31 @@ def computing_regitration_itk(im_ref, im_to_register, upscale_factor, display=Fa
 
     registered_im_itk = resample_filter.GetOutput()
     registered_im = itk.GetArrayFromImage(registered_im_itk)
+    
+    
+    for i in range(registered_im.shape[0]-1):
+        for j in range(registered_im.shape[1]-1):
+            if registered_im[i,j] != 0 and (registered_im[i+1,j] != 0 or registered_im[i,j+1] != 0):
+                int1 = registered_im[i,j]
+                int2 = registered_im[i+1,j]
+                int3 = registered_im[i,j+1]
+                int4 = registered_im[i+1,j+1]
+                liste_int = [int1,int2,int3,int4]
+                liste_pts = [[i,j],[i+1,j],[i,j+1],[i+1,j+1]]
+                int_max = max(liste_int)
+                ind = liste_int.index(int_max)
+                int_tot = np.sum(liste_int)
+                x = liste_pts[ind][0]
+                y = liste_pts[ind][1]
+                for k in range(4):
+                    x2 = liste_pts[k][0]
+                    y2 = liste_pts[k][1]
+                    registered_im[x2,y2] = 0.0
+                registered_im[x,y] = int_tot
+                
+                
+    # plt.imsave('test.png',registered_im,cmap='gray')
+    # exit()
     
     print(optimizer.GetCurrentIteration())
     print(optimizer.GetValue())
