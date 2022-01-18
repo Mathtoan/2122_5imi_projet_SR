@@ -614,7 +614,7 @@ def PG_method(HR_grid, sigma,
         print('Execution time : ' + interation_time_str + ' | Total execution time : ' + global_time_str)
     
     if i==max_steps:
-        print("/!\ Max steps reached (%i) /!\ "%(max_steps))
+        print("/!\ Max steps reached /!\ ")
 
     save_path = os.path.join(save_dir, 'it_'+str(i))
     if not(os.path.exists(save_path)):
