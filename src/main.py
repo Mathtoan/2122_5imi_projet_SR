@@ -36,7 +36,6 @@ args = parser.parse_args()
 #%% Parameters
 display = args.display
 upscale_factor = args.upscale_factor
-it = args.iterations
 sigma = args.sigma
 color = args.color
 idx_ref = args.ref
@@ -47,7 +46,6 @@ psf = args.psf
 
 print('RUNNING PARAMETER', 
       '\nUpscale factor :', upscale_factor,
-      '\nNumber of iteration of Papoulis-Gerchberg :', it,
       '\nSigma :', sigma)
 
 #%% Path
