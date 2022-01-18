@@ -1,6 +1,7 @@
 #%% Import
 import argparse
 import os
+import pickle
 
 from numpy import float64
 
@@ -13,7 +14,7 @@ parser.add_argument('-d','--display', action='store_true',
 parser.add_argument('-D', '--device', type=str, default='iPhone13Pro',
                     help='Choose the device', choices=['iPhone13Pro'])
 parser.add_argument('-s', '--scene', type=str, default='scene1',
-                    help='Choose the scene', choices=['scene1','scene2'])
+                    help='Choose the scene', choices=['scene1','scene2','scene3'])
 parser.add_argument('-f', '--upscale_factor', type=int, default='4',
                     help='Choose the upscaling factor')
 parser.add_argument('-i', '--iterations', type=int, default='100',
@@ -52,6 +53,14 @@ mse = args.mse
 debug = args.debug
 psf = args.psf
 
+if color=='gray':
+    colmap='gray'
+elif color=='rgb':
+    colmap='viridis'
+else:
+    print('Undefined color')
+    exit()
+
 print('RUNNING PARAMETER', 
       '\nUpscale factor :', upscale_factor,
       '\nNumber of iteration of Papoulis-Gerchberg :', it,
@@ -65,13 +74,15 @@ if debug:
     else:
         output_dir = os.path.join('debug', args.device, args.scene)
 else:
-    output_dir = os.path.join('output', args.device, args.scene)
+    output_dir = os.path.join('output_'+color, args.device, args.scene)
 o_up_dir = os.path.join(output_dir, 'up_'+str(upscale_factor))
 o_sigma_dir = os.path.join(o_up_dir, 'sigma_'+str(sigma))
 o_it_dir = os.path.join(o_sigma_dir, 'it_'+str(it))
 
 if not(os.path.exists(o_it_dir)):
     os.makedirs(o_it_dir)
+if not(os.path.exists('output/hist')):
+    os.makedirs('output/hist')
 
 list_image_input_dir = [os.path.join(input_dir, i) for i in os.listdir(input_dir) if not i.startswith('.')]
 list_image_input_dir.sort()
@@ -83,33 +94,38 @@ list_image_input_dir.sort()
 
 im_groundtruth = io.imread(list_image_input_dir[idx_ref])
 if color=='gray':
-    im_groundtruth = rgb2gray(im_groundtruth)
-im_ref = rescale(im_groundtruth, 1/upscale_factor)
+    try: 
+        im_groundtruth = rgb2gray(im_groundtruth)
+        im_groundtruth = im_groundtruth[:,:,np.newaxis]
+    except: pass
+im_ref = rescale(im_groundtruth, 1/upscale_factor, channel_axis=2)
 
-HR_grid_txt_dir = os.path.join(o_up_dir, 'HR_grid_'+str(idx_ref)+'.txt')
+HR_grid_txt_dir = os.path.join(o_up_dir, 'HR_grid_'+str(idx_ref)+'.pkl')
 
 # Load saved HR grid if already generated
-# if os.path.exists(HR_grid_txt_dir):
-#     print('Loading ', HR_grid_txt_dir)
-#     HR_grid = np.loadtxt(HR_grid_txt_dir, dtype=float)
-# else:
-#     HR_grid = creation_HR_grid(im_ref, list_image_input_dir, idx_ref, upscale_factor, method, color)
-#     np.savetxt(HR_grid_txt_dir, HR_grid, fmt='%f')
+if os.path.exists(HR_grid_txt_dir):
+    print('Loading ', HR_grid_txt_dir)
+    # HR_grid = np.loadtxt(HR_grid_txt_dir, dtype=float)
+    pkl_file = open(HR_grid_txt_dir, 'rb')
+    HR_grid = pickle.load(pkl_file)
+else:
+    HR_grid = creation_HR_grid(im_ref, list_image_input_dir, idx_ref, upscale_factor, method, color)
+    try: plt.imsave(os.path.join(o_up_dir,'hr_grid_'+str(idx_ref)+'.png'), float64_to_uint8(HR_grid), cmap=colmap)
+    except: plt.imsave(os.path.join(o_up_dir,'hr_grid_'+str(idx_ref)+'.png'), float64_to_uint8(HR_grid[:,:,0]), cmap=colmap)
+    # np.savetxt(HR_grid_txt_dir, HR_grid[:,:,0], fmt='%f')
+    output = open(HR_grid_txt_dir, 'wb')
+    pickle.dump(HR_grid, output)
+    output.close()
 
+image_histogram(HR_grid[:,:,0], 'Histogram HR grid', save_dir=os.path.join(o_up_dir,'hist_HR_grid.png'))
+image_histogram(HR_grid[:,:,0], 'Histogram HR grid without 0', save_dir=os.path.join(o_up_dir,'hist_HR_grid_1.png'), bins=np.linspace(1/255,1,255))
 
-
-HR_grid = creation_HR_grid(im_ref, list_image_input_dir, idx_ref, upscale_factor, method, color)
-image_histogram(HR_grid, 'Histogram HR grid', save_dir=os.path.join(o_up_dir,'hist_HR_grid.png'))
-image_histogram(HR_grid, 'Histogram HR grid without 0', save_dir=os.path.join(o_up_dir,'hist_HR_grid_1.png'), bins=np.linspace(1/255,1,256))
-np.savetxt(HR_grid_txt_dir, HR_grid, fmt='%f')
-
-io.imsave(os.path.join(o_up_dir,'hr_grid_'+str(idx_ref)+'.png'), float64_to_uint8(HR_grid))
-save_im(os.path.join(o_up_dir,'groundtruth.png'), im_groundtruth, new=True)
-save_im(os.path.join(o_up_dir,'lr_image_'+str(idx_ref)+'.png'), im_ref, new=True)
+save_im(os.path.join(o_up_dir,'groundtruth.png'), im_groundtruth, colmap, new=True)
+save_im(os.path.join(o_up_dir,'lr_image_'+str(idx_ref)+'.png'), im_ref, colmap, new=True)
 # exit()
 
 #%% Papoulis-Gerchberg method
-image_histogram(im_groundtruth, 'Histogram groundtruth', save_dir=os.path.join(o_up_dir,'hist_gt.png'))
+# image_histogram(im_groundtruth, 'Histogram groundtruth', save_dir=os.path.join(o_up_dir,'hist_gt.png'))
 if debug:
     im_sr,H = PG_method(HR_grid, im_ref, sigma, upscale_factor, it,
                         save_dir=o_sigma_dir, MSE=mse, out_filter=True, intermediary_step=savesteps,
@@ -119,14 +135,6 @@ else:
                         save_dir=o_sigma_dir, MSE=mse, out_filter=True, intermediary_step=savesteps, plot_debug_intensity=True)
 io.imsave(os.path.join(o_sigma_dir, 'filter.png'), float64_to_uint8(H))
 io.imsave(os.path.join(o_it_dir,'sr_image_new.png'), float64_to_uint8(im_sr.real))
-
-if color=='gray':
-    colmap='gray'
-elif color=='rgb':
-    colmap='viridis'
-else:
-    print('Undefined color')
-    exit()
 
 if display:
     plt.figure()
