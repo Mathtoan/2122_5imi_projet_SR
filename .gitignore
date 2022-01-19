@@ -4,5 +4,7 @@ __pycache__
 # Figures
 fig
 output
+output_gray
+output_rgb
 test
 debug

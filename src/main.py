@@ -23,7 +23,7 @@ parser.add_argument('-c', '--color', type=str, default='gray',
                     help='Choose the color of the output image', choices=['gray','rgb'])
 parser.add_argument('-r', '--ref', type=int, default='0',
                     help='Choose the reference image')
-parser.add_argument('-m', '--method', type=str, default='POI',
+parser.add_argument('-m', '--method', type=str, default='itk',
                     help='Choose the registration method', choices=['translation','POI','pixel','itk','handmade'])
 parser.add_argument('-i', '--intermediary_step', type=float,
                     help='Save PG method n steps')
@@ -119,15 +119,20 @@ save_im(os.path.join(o_up_dir,'lr_image_'+str(idx_ref)+'.png'), im_ref, colmap, 
 
 #%% Papoulis-Gerchberg method
 # image_histogram(im_groundtruth, 'Histogram groundtruth', save_dir=os.path.join(o_up_dir,'hist_gt.png'))
-if debug:
-    im_sr,H = PG_method(HR_grid,
-                        save_dir=o_sigma_dir, out_filter=True, intermediary_step=intermediary_step,
-                        plot_debug_intensity=True, colmap=colmap)
-else:
-    im_sr,H = PG_method(HR_grid, sigma,
-                        save_dir=o_sigma_dir, out_filter=True, intermediary_step=intermediary_step, plot_debug_intensity=True,
-                        filter_type=filter_type, colmap=colmap)
-io.imsave(os.path.join(o_sigma_dir, 'filter.png'), float64_to_uint8(H))
+im_sr_final = np.zeros(HR_grid.shape)
+for k in range(HR_grid.shape[2]):
+    if debug:
+        im_sr,H = PG_method(HR_grid[:,:,k],
+                            save_dir=o_sigma_dir, out_filter=True, intermediary_step=intermediary_step,
+                            plot_debug_intensity=True)
+    else:
+        im_sr,H = PG_method(HR_grid[:,:,k], sigma,
+                            save_dir=o_sigma_dir, out_filter=True, intermediary_step=intermediary_step, plot_debug_intensity=True,
+                            filter_type=filter_type)
+    im_sr_final[:,:,k] = im_sr
+# io.imsave(os.path.join(o_sigma_dir, 'filter.png'), float64_to_uint8(H))
+try: plt.imsave(os.path.join(o_sigma_dir, 'sr_final.png'), float64_to_uint8(im_sr_final), cmap=colmap)
+except: plt.imsave(os.path.join(o_sigma_dir, 'sr_final.png'), float64_to_uint8(im_sr_final[:,:,0]), cmap=colmap)
 
 if display:
     plt.figure()
