@@ -44,11 +44,12 @@ def float64_to_uint8(x):
     else:
         return np.round(x*255).astype(np.uint8)
 
-def save_im(path, im, new=False):
+def save_im(path, im, colmap, new=False):
     if os.path.exists(path) and new:
         print(path, 'already saved')
     else:
-        io.imsave(path, float64_to_uint8(im))
+        try: plt.imsave(path, float64_to_uint8(im), cmap=colmap)
+        except: plt.imsave(path, float64_to_uint8(im[:,:,0]), cmap=colmap)
 # psf2otf
 def gaussian_2d(h, w,sigma_x, sigma_y, meshgrid=False):
     # 'Normalized [-1,1] meshgrids' 
@@ -103,7 +104,7 @@ def creation_HR_grid(im_ref, list_image_input_dir, idx_ref, upscale_factor, meth
     global_start_time = time.time()
     lr_size = im_ref.shape
     if color=='gray':
-        sr_size = [lr_size[0]*upscale_factor, lr_size[1]*upscale_factor]
+        sr_size = [lr_size[0]*upscale_factor, lr_size[1]*upscale_factor,1]
     elif color=='rgb':
         sr_size = [lr_size[0]*upscale_factor, lr_size[1]*upscale_factor, 3]
     else:
@@ -120,9 +121,11 @@ def creation_HR_grid(im_ref, list_image_input_dir, idx_ref, upscale_factor, meth
             idx_w_ref = w*upscale_factor
 
             im_ref_up[idx_h_ref][idx_w_ref] = im_ref[h][w]
-    im_sr = np.copy(im_ref_up)
+    
+    im_sr = np.zeros(sr_size)
+    im_sr += np.copy(im_ref_up)
     cpt_grid[im_ref_up != 0] += 1
-    image_histogram(im_sr, 'im_sr_0', bins=np.linspace(1/255,1,255), save_dir='output/hist/im_sr_0')
+    image_histogram(im_sr[:,:,0], 'im_sr_0', bins=np.linspace(1/255,1,255), save_dir='output/hist/im_sr_0')
 
     # print(np.amin(im_sr), np.amax(im_sr))
     print('######### idx_ref =', idx_ref, '#########')
@@ -130,19 +133,18 @@ def creation_HR_grid(im_ref, list_image_input_dir, idx_ref, upscale_factor, meth
         if k != idx_ref:
             im_to_register = io.imread(list_image_input_dir[k])
             if color=='gray':
-                im_to_register = rgb2gray(im_to_register)
-            im_to_register = rescale(im_to_register, 1/upscale_factor)
+                try: 
+                    im_to_register = rgb2gray(im_to_register)
+                    im_to_register = im_to_register[:,:,np.newaxis]
+                except: pass
+            im_to_register = rescale(im_to_register, 1/upscale_factor, channel_axis=2)
             registered_im = eval('computing_regitration_'+method+'(im_ref, im_to_register, upscale_factor)')
 
             print("ref: ",im_ref.shape)
             print("registered: ",registered_im.shape)
-            # plt.imsave("registered_"+str(k)+".png",im_ref+registered_im, cmap='gray')
             
-            # im_ref_up[:10,:10] = 1
-            # registered_im[sr_size[0]-10:, sr_size[1]-10:] = 1
-            plt.imsave("registered_"+str(k)+".png",im_ref_up+registered_im, cmap='gray')
+            # plt.imsave("registered_"+str(k)+".png",im_ref_up+registered_im, cmap='gray')
             
-            # im_sr[im_sr==0] = registered_im[im_sr==0]
             im_sr += registered_im
             cpt_grid[registered_im != 0] += 1
             
@@ -151,7 +153,7 @@ def creation_HR_grid(im_ref, list_image_input_dir, idx_ref, upscale_factor, meth
             save_sr = save_sr.reshape(sr_size)
             print(save_sr.shape)
             
-            image_histogram(save_sr, 'im_sr_'+str(k), bins=np.linspace(1/255,1,255), save_dir='output/hist/im_sr_'+str(k))
+            image_histogram(save_sr[:,:,0], 'im_sr_'+str(k), bins=np.linspace(1/255,1,255), save_dir='output/hist/im_sr_'+str(k))
             
             # exit()
     
@@ -338,14 +340,22 @@ def computing_regitration_pixel(im_ref, im_to_register, upscale_factor, display=
 def computing_regitration_itk(im_ref, im_to_register, upscale_factor, display=False):
     print('Registration using itk method')
     
-    height, width = im_ref.shape
+    height, width = im_ref.shape[:2]
+    try : dim = im_to_register.shape[2]
+    except: dim=1
 
     # ----------------------
     # Lecture des images
     # ----------------------
     
-    im_ref_itk = itk.GetImageFromArray(im_ref)
-    im_to_register_itk = itk.GetImageFromArray(im_to_register)
+    try : 
+        im_ref_2d = im_ref[:,:,0]
+        im_to_register_2d = im_to_register[:,:,0]
+    except : 
+        im_ref_2d = im_ref
+        im_to_register_2d = im_to_register
+    im_ref_itk = itk.GetImageFromArray(im_ref_2d)
+    im_to_register_itk = itk.GetImageFromArray(im_to_register_2d)
     im_ref_itk_type = type(im_ref_itk) # On récupère le type de l'image fixe
     im_to_register_itk_type = type(im_to_register_itk) # On récupère le type de l'image translatée
     
@@ -354,7 +364,7 @@ def computing_regitration_itk(im_ref, im_to_register, upscale_factor, display=Fa
         for w in range(width):
             idx_h_ref = h*upscale_factor
             idx_w_ref = w*upscale_factor
-            im_to_register_up[idx_h_ref][idx_w_ref] = im_to_register[h][w]
+            im_to_register_up[idx_h_ref][idx_w_ref] = im_to_register[h][w][0]
     im_to_register_up_itk = itk.GetImageFromArray(im_to_register_up)
 
     # ----------------------
@@ -364,7 +374,6 @@ def computing_regitration_itk(im_ref, im_to_register, upscale_factor, display=Fa
     optimizer.SetMaximumStepLength(.1)
     optimizer.SetMinimumStepLength(.001)
     optimizer.SetNumberOfIterations(1000)
-    # optimizer.SetNumberOfIterations(200)
     optimizer.SetScales([500, 1, 1, 1, 1])
     # ----------------------
     # initial Parameter
@@ -422,44 +431,45 @@ def computing_regitration_itk(im_ref, im_to_register, upscale_factor, display=Fa
     # Apply last transform
     # ----------------------
     
-    test_im = np.zeros(im_to_register_itk.GetLargestPossibleRegion().GetSize())
-    test_im[50:60,50:60] = 1
-    test_im = itk.GetImageFromArray(test_im)
-    test_im_type = type(test_im)
+    registered_im = np.zeros([height*upscale_factor,width*upscale_factor,dim])
+    
+    for k in range(dim):
+        
+        im_to_register_up = np.zeros([height*upscale_factor,width*upscale_factor])
+        for h in range(height):
+            for w in range(width):
+                idx_h_ref = h*upscale_factor
+                idx_w_ref = w*upscale_factor
+                im_to_register_up[idx_h_ref][idx_w_ref] = im_to_register[h][w][k]
+        im_to_register_up_itk = itk.GetImageFromArray(im_to_register_up)
+        
+        resample_filter = itk.ResampleImageFilter[im_ref_itk_type,im_to_register_itk_type].New() #Instance de la classe de ré-échantillonnage
+        resample_filter.SetInput(im_to_register_up_itk) # Image d'entrée
+        resample_filter.SetTransform(final_transform)
+        resample_filter.SetSize(im_to_register_up_itk.GetLargestPossibleRegion().GetSize())
 
-    # resample_filter = itk.ResampleImageFilter[im_ref_itk_type,test_im_type].New() #Instance de la classe de ré-échantillonnage
-    # resample_filter.SetInput(test_im) # Image d'entrée
-    # resample_filter.SetTransform(final_transform)
-    # resample_filter.SetSize(test_im.GetLargestPossibleRegion().GetSize())
+        registered_im_itk = resample_filter.GetOutput()
+        registered_im[:,:,k] = itk.GetArrayFromImage(registered_im_itk)
     
-    resample_filter = itk.ResampleImageFilter[im_ref_itk_type,im_to_register_itk_type].New() #Instance de la classe de ré-échantillonnage
-    resample_filter.SetInput(im_to_register_up_itk) # Image d'entrée
-    resample_filter.SetTransform(final_transform)
-    resample_filter.SetSize(im_to_register_up_itk.GetLargestPossibleRegion().GetSize())
-
-    registered_im_itk = resample_filter.GetOutput()
-    registered_im = itk.GetArrayFromImage(registered_im_itk)
-    
-    
-    for i in range(registered_im.shape[0]-1):
-        for j in range(registered_im.shape[1]-1):
-            if registered_im[i,j] != 0 and (registered_im[i+1,j] != 0 or registered_im[i,j+1] != 0):
-                int1 = registered_im[i,j]
-                int2 = registered_im[i+1,j]
-                int3 = registered_im[i,j+1]
-                int4 = registered_im[i+1,j+1]
-                liste_int = [int1,int2,int3,int4]
-                liste_pts = [[i,j],[i+1,j],[i,j+1],[i+1,j+1]]
-                int_max = max(liste_int)
-                ind = liste_int.index(int_max)
-                int_tot = np.sum(liste_int)
-                x = liste_pts[ind][0]
-                y = liste_pts[ind][1]
-                for k in range(4):
-                    x2 = liste_pts[k][0]
-                    y2 = liste_pts[k][1]
-                    registered_im[x2,y2] = 0.0
-                registered_im[x,y] = int_tot
+        for i in range(registered_im.shape[0]-1):
+            for j in range(registered_im.shape[1]-1):
+                if registered_im[i,j,k] != 0 and (registered_im[i+1,j,k] != 0 or registered_im[i,j+1,k] != 0):
+                    int1 = registered_im[i,j,k]
+                    int2 = registered_im[i+1,j,k]
+                    int3 = registered_im[i,j+1,k]
+                    int4 = registered_im[i+1,j+1,k]
+                    liste_int = [int1,int2,int3,int4]
+                    liste_pts = [[i,j],[i+1,j],[i,j+1],[i+1,j+1]]
+                    int_max = max(liste_int)
+                    ind = liste_int.index(int_max)
+                    int_tot = np.sum(liste_int)
+                    x = liste_pts[ind][0]
+                    y = liste_pts[ind][1]
+                    for index in range(4):
+                        x2 = liste_pts[index][0]
+                        y2 = liste_pts[index][1]
+                        registered_im[x2,y2,k] = 0.0
+                    registered_im[x,y,k] = int_tot
                 
                 
     # plt.imsave('test.png',registered_im,cmap='gray')

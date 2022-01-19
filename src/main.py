@@ -1,6 +1,7 @@
 #%% Import
 import argparse
 import os
+import pickle
 
 from utils import *
 
@@ -47,6 +48,14 @@ debug = args.debug
 psf = args.psf
 filter_type = args.filter_type
 
+if color=='gray':
+    colmap='gray'
+elif color=='rgb':
+    colmap='viridis'
+else:
+    print('Undefined color')
+    exit()
+
 print('RUNNING PARAMETER', 
       '\nUpscale factor :', upscale_factor,
       '\nSigma :', sigma,
@@ -60,12 +69,14 @@ if debug:
     else:
         output_dir = os.path.join('debug', args.device, args.scene)
 else:
-    output_dir = os.path.join('output', args.device, args.scene)
+    output_dir = os.path.join('output_'+color, args.device, args.scene)
 o_up_dir = os.path.join(output_dir, 'up_'+str(upscale_factor))
 o_sigma_dir = os.path.join(o_up_dir, 'sigma_'+str(sigma))
 
 if not(os.path.exists(o_sigma_dir)):
     os.makedirs(o_sigma_dir)
+if not(os.path.exists('output/hist')):
+    os.makedirs('output/hist')
 
 list_image_input_dir = [os.path.join(input_dir, i) for i in os.listdir(input_dir) if not i.startswith('.')]
 list_image_input_dir.sort()
@@ -77,33 +88,38 @@ list_image_input_dir.sort()
 
 im_groundtruth = io.imread(list_image_input_dir[idx_ref])
 if color=='gray':
-    im_groundtruth = rgb2gray(im_groundtruth)
-im_ref = rescale(im_groundtruth, 1/upscale_factor)
+    try: 
+        im_groundtruth = rgb2gray(im_groundtruth)
+        im_groundtruth = im_groundtruth[:,:,np.newaxis]
+    except: pass
+im_ref = rescale(im_groundtruth, 1/upscale_factor, channel_axis=2)
 
-HR_grid_txt_dir = os.path.join(o_up_dir, 'HR_grid_'+str(idx_ref)+'.txt')
+HR_grid_txt_dir = os.path.join(o_up_dir, 'HR_grid_'+str(idx_ref)+'.pkl')
 
 # Load saved HR grid if already generated
 if os.path.exists(HR_grid_txt_dir):
     print('Loading ', HR_grid_txt_dir)
-    HR_grid = np.loadtxt(HR_grid_txt_dir, dtype=float)
+    # HR_grid = np.loadtxt(HR_grid_txt_dir, dtype=float)
+    pkl_file = open(HR_grid_txt_dir, 'rb')
+    HR_grid = pickle.load(pkl_file)
 else:
     HR_grid = creation_HR_grid(im_ref, list_image_input_dir, idx_ref, upscale_factor, method, color)
-    np.savetxt(HR_grid_txt_dir, HR_grid, fmt='%f')
+    try: plt.imsave(os.path.join(o_up_dir,'hr_grid_'+str(idx_ref)+'.png'), float64_to_uint8(HR_grid), cmap=colmap)
+    except: plt.imsave(os.path.join(o_up_dir,'hr_grid_'+str(idx_ref)+'.png'), float64_to_uint8(HR_grid[:,:,0]), cmap=colmap)
+    # np.savetxt(HR_grid_txt_dir, HR_grid[:,:,0], fmt='%f')
+    output = open(HR_grid_txt_dir, 'wb')
+    pickle.dump(HR_grid, output)
+    output.close()
 
+image_histogram(HR_grid[:,:,0], 'Histogram HR grid', save_dir=os.path.join(o_up_dir,'hist_HR_grid.png'))
+image_histogram(HR_grid[:,:,0], 'Histogram HR grid without 0', save_dir=os.path.join(o_up_dir,'hist_HR_grid_1.png'), bins=np.linspace(1/255,1,255))
 
-
-# HR_grid = creation_HR_grid(im_ref, list_image_input_dir, idx_ref, upscale_factor, method, color)
-image_histogram(HR_grid, 'Histogram HR grid', save_dir=os.path.join(o_up_dir,'hist_HR_grid.png'))
-image_histogram(HR_grid, 'Histogram HR grid without 0', save_dir=os.path.join(o_up_dir,'hist_HR_grid_1.png'), bins=np.linspace(1/255,1,256))
-# np.savetxt(HR_grid_txt_dir, HR_grid, fmt='%f')
-
-io.imsave(os.path.join(o_up_dir,'hr_grid_'+str(idx_ref)+'.png'), float64_to_uint8(HR_grid))
-save_im(os.path.join(o_up_dir,'groundtruth.png'), im_groundtruth, new=True)
-save_im(os.path.join(o_up_dir,'lr_image_'+str(idx_ref)+'.png'), im_ref, new=True)
+save_im(os.path.join(o_up_dir,'groundtruth.png'), im_groundtruth, colmap, new=True)
+save_im(os.path.join(o_up_dir,'lr_image_'+str(idx_ref)+'.png'), im_ref, colmap, new=True)
 # exit()
 
 #%% Papoulis-Gerchberg method
-image_histogram(im_groundtruth, 'Histogram groundtruth', save_dir=os.path.join(o_up_dir,'hist_gt.png'))
+# image_histogram(im_groundtruth, 'Histogram groundtruth', save_dir=os.path.join(o_up_dir,'hist_gt.png'))
 if debug:
     im_sr,H = PG_method(HR_grid,
                         save_dir=o_sigma_dir, out_filter=True, intermediary_step=intermediary_step,
@@ -113,14 +129,6 @@ else:
                         save_dir=o_sigma_dir, out_filter=True, intermediary_step=intermediary_step, plot_debug_intensity=True,
                         filter_type=filter_type)
 io.imsave(os.path.join(o_sigma_dir, 'filter.png'), float64_to_uint8(H))
-
-if color=='gray':
-    colmap='gray'
-elif color=='rgb':
-    colmap='viridis'
-else:
-    print('Undefined color')
-    exit()
 
 if display:
     plt.figure()
