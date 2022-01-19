@@ -497,7 +497,7 @@ def computing_regitration_itk(im_ref, im_to_register, upscale_factor, display=Fa
 
 def PG_method(HR_grid, sigma,
               out_filter=False, intermediary_step=None, eps=1e-5,save_dir=None, psf=False,
-              imshow_debug=False, plot_debug_intensity=False, max_steps=100):
+              imshow_debug=False, plot_debug_intensity=False, max_steps=100, colmap='gray'):
     
     if intermediary_step!=None:
         if save_dir==None:
@@ -522,7 +522,7 @@ def PG_method(HR_grid, sigma,
     err = eps+1e3
     MSE = []
     if plot_debug_intensity:
-        u,v = np.where(HR_grid==0)
+        u,v,_ = np.where(HR_grid==0)
         r = randint(0,len(u)-1)
 
         plot_debug_idx = (u[r], v[r])
@@ -531,62 +531,64 @@ def PG_method(HR_grid, sigma,
     i = 0
     while (err>eps or i<2) and i<max_steps:
         i+=1
+        
+        for k in range(HR_grid.shape[2]):
             
-        interation_start_time = time.time()
-        print('step = %i'%(i))
-        old_im_sr = im_sr.real
+            interation_start_time = time.time()
+            print('step = %i'%(i))
+            old_im_sr = im_sr.real
+        
+            # -------------
+            # Apply filter
+            # -------------
 
-        # -------------
-        # Apply filter
-        # -------------
+            # In Fourier domain
+            if not(psf): 
+                old_fft_im_sr = fftshift(fft2(old_im_sr[:,:,k]))
 
-        # In Fourier domain
-        if not(psf): 
-            old_fft_im_sr = fftshift(fft2(old_im_sr))
+                if i==0 and save_dir!=None:
+                    save_im(os.path.join(save_dir, 'fft.png'), np.log10(np.abs(old_fft_im_sr)))
+                    
+                fft_im_sr = np.multiply(old_fft_im_sr, filter)
 
-            if i==0 and save_dir!=None:
-                save_im(os.path.join(save_dir, 'fft.png'), np.log10(np.abs(old_fft_im_sr)))
-                
-            fft_im_sr = np.multiply(old_fft_im_sr, filter)
+                im_sr[:,:,k] = ifft2(ifftshift(fft_im_sr))
 
-            im_sr = ifft2(ifftshift(fft_im_sr))
+            # In direct space
+            else: 
+                im_sr[:,:,k] = gaussian(old_im_sr[:,:,k], sigma)
 
-        # In direct space
-        else: 
-            im_sr = gaussian(old_im_sr, sigma)
+            # ---------------------------
+            # Plotting for debug purposes
+            # ---------------------------
+            if imshow_debug and not(psf):
+                # image and FFT between 2 consecutive interations
+                plt.figure()
+                plt.subplot(221)
+                plt.imshow(old_im_sr[:,:,k].real, 'gray')
+                plt.title('Image (it = %i)'%(i))
 
-        # ---------------------------
-        # Plotting for debug purposes
-        # ---------------------------
-        if imshow_debug and not(psf):
-            # image and FFT between 2 consecutive interations
-            plt.figure()
-            plt.subplot(221)
-            plt.imshow(old_im_sr.real, 'gray')
-            plt.title('Image (it = %i)'%(i))
+                plt.subplot(222)
+                plt.imshow(np.log10(np.abs(old_fft_im_sr)), 'gray')
+                plt.title('FFT image (log10) (it = %i)'%(i))
 
-            plt.subplot(222)
-            plt.imshow(np.log10(np.abs(old_fft_im_sr)), 'gray')
-            plt.title('FFT image (log10) (it = %i)'%(i))
+                plt.subplot(223)
+                plt.imshow(im_sr[:,:,k].real, 'gray')
+                plt.title('Image (it = %i)'%(i+1))
 
-            plt.subplot(223)
-            plt.imshow(im_sr.real, 'gray')
-            plt.title('Image (it = %i)'%(i+1))
+                plt.subplot(224)
+                plt.imshow(np.log10(np.abs(fft_im_sr)), 'gray')
+                plt.title('FFT image (log10) (it = %i)'%(i+1))
 
-            plt.subplot(224)
-            plt.imshow(np.log10(np.abs(fft_im_sr)), 'gray')
-            plt.title('FFT image (log10) (it = %i)'%(i+1))
+                plt.show()
+                plt.close()
 
-            plt.show()
-            plt.close()
-
-            # filter
-            plt.figure()
-            plt.imshow(filter, 'gray')
-            plt.title('Filter (sigma = %0.3f)'%(sigma))
-            plt.show()
-            plt.close()
-            exit()
+                # filter
+                plt.figure()
+                plt.imshow(filter, 'gray')
+                plt.title('Filter (sigma = %0.3f)'%(sigma))
+                plt.show()
+                plt.close()
+                exit()
 
 
         # -----------------------------
@@ -633,10 +635,10 @@ def PG_method(HR_grid, sigma,
     # --------------
     # Saving results
     # --------------
-    save_im(os.path.join(save_path,'sr_image_old.png'), old_im_sr.real)
-    save_im(os.path.join(save_path, 'fft_before_filter.png'), np.log10(np.abs(old_fft_im_sr)))
-    save_im(os.path.join(save_path, 'fft_after_filter.png'), np.log10(np.abs(fft_im_sr)))
-    save_im(os.path.join(save_path,'sr_image.png'), im_sr.real)
+    save_im(os.path.join(save_path,'sr_image_old.png'), old_im_sr.real, colmap)
+    save_im(os.path.join(save_path, 'fft_before_filter.png'), np.log10(np.abs(old_fft_im_sr)), colmap)
+    save_im(os.path.join(save_path, 'fft_after_filter.png'), np.log10(np.abs(fft_im_sr)), colmap)
+    save_im(os.path.join(save_path,'sr_image.png'), im_sr.real, colmap)
 
     
     # ------------

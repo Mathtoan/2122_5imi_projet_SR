@@ -119,10 +119,10 @@ save_im(os.path.join(o_up_dir,'lr_image_'+str(idx_ref)+'.png'), im_ref, colmap, 
 if debug:
     im_sr,H = PG_method(HR_grid,
                         save_dir=o_sigma_dir, out_filter=True, intermediary_step=intermediary_step,
-                        plot_debug_intensity=True)
+                        plot_debug_intensity=True, colmap=colmap)
 else:
     im_sr,H = PG_method(HR_grid, sigma,
-                        save_dir=o_sigma_dir, out_filter=True, intermediary_step=intermediary_step, plot_debug_intensity=True)
+                        save_dir=o_sigma_dir, out_filter=True, intermediary_step=intermediary_step, plot_debug_intensity=True, colmap=colmap)
 io.imsave(os.path.join(o_sigma_dir, 'filter.png'), float64_to_uint8(H))
 
 if display:
