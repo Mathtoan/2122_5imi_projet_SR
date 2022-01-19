@@ -65,6 +65,14 @@ def image_histogram(im, title, bins=np.linspace(0,1,256), save_dir=None):
         plt.savefig(save_dir, dpi=200)
     plt.close()
 
+def PSNR(I1, I2):
+
+    MSE = np.sum((I1 - I2)**2)/(I1.shape[0]*I1.shape[1])
+
+    psnr = 10*np.log10((np.amax(I)**2)/MSE)
+
+    return psnr
+
 # ----------------------
 # Registration functions
 # ----------------------
@@ -660,6 +668,8 @@ def PG_method(HR_grid, sigma,
     save_im(os.path.join(save_path, 'fft_before_filter.png'), np.log10(np.abs(old_fft_im_sr)), 'gray')
     save_im(os.path.join(save_path, 'fft_after_filter.png'), np.log10(np.abs(fft_im_sr)), 'gray')
     save_im(os.path.join(save_path,'sr_image.png'), im_sr.real, 'gray')
+
+    save_im(os.path.join(save_dir, 'filter.png'), filter, 'gray')
 
     
     # ------------

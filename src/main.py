@@ -69,7 +69,7 @@ if debug:
         output_dir = os.path.join('debug', args.device, args.scene)
 else:
     output_dir = os.path.join('output_'+color, args.device, args.scene)
-o_up_dir = os.path.join(output_dir, 'up_'+str(upscale_factor))
+o_up_dir = os.path.join(output_dir, 'up_'+str(upscale_factor), args.filter_type)
 o_sigma_dir = os.path.join(o_up_dir, 'sigma_'+str(sigma))
 
 if not(os.path.exists(o_sigma_dir)):
