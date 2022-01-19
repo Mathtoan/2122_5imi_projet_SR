@@ -53,8 +53,7 @@ if color=='gray':
 elif color=='rgb':
     colmap='viridis'
 else:
-    print('Undefined color')
-    exit()
+    raise ValueError('Undefined color')
 
 print('RUNNING PARAMETER', 
       '\nUpscale factor :', upscale_factor,
