@@ -63,7 +63,7 @@ def gaussian_2d(h, w,sigma_x, sigma_y, meshgrid=False):
     else:
         return U, V, H
 
-def filter_test(h, w,sigma):
+def centered_square(h, w,sigma):
     u = np.linspace(-(w-1)/2.,(w-1)/2., w)/((w-1)/2)
     v = np.linspace(-(h-1)/2.,(h-1)/2., h)/((h-1)/2)
     U,V = np.meshgrid(u,v)
@@ -497,7 +497,7 @@ def computing_regitration_itk(im_ref, im_to_register, upscale_factor, display=Fa
 
 def PG_method(HR_grid, sigma,
               out_filter=False, intermediary_step=None, eps=1e-5,save_dir=None, psf=False,
-              imshow_debug=False, plot_debug_intensity=False, max_steps=100, colmap='gray'):
+              imshow_debug=False, plot_debug_intensity=False, max_steps=100, filter_type='centered_circle', colmap='gray'):
     
     if intermediary_step!=None:
         if save_dir==None:
@@ -513,8 +513,15 @@ def PG_method(HR_grid, sigma,
     sr_size = HR_grid.shape
     print(HR_grid.shape)
 
-    # filter = gaussian_2d(sr_size[0], sr_size[1], sigma, sigma)
-    filter = centered_circle(sr_size[0], sr_size[1],sigma)
+    if filter_type == 'centered_circle' or filter_type == 'circle':
+        filter = centered_circle(sr_size[0], sr_size[1],sigma)
+    elif filter_type == 'centered_square' or filter_type == 'square':
+        filter = centered_square(sr_size[0], sr_size[1],sigma)
+    elif filter_type == 'gaussian' or filter_type == 'gaussian_2d':
+        filter = gaussian_2d(sr_size[0], sr_size[1], sigma, sigma)
+    else:
+        raise ValueError("Unknown filter")
+    
     initialization_time_str = format_time(time.time() - initialization_start_time)
     global_time_str = format_time(time.time() - global_start_time)
     print('Execution time : ' + initialization_time_str + ' | Total execution time : ' + global_time_str)

@@ -12,9 +12,11 @@ parser.add_argument('-d','--display', action='store_true',
 parser.add_argument('-D', '--device', type=str, default='iPhone13Pro',
                     help='Choose the device', choices=['iPhone13Pro'])
 parser.add_argument('-s', '--scene', type=str, default='scene1',
-                    help='Choose the scene', choices=['scene1','scene2','scene3'])
-parser.add_argument('-f', '--upscale_factor', type=int, default='4',
+                    help='Choose the scene', choices=['scene1','scene2', 'scene3'])
+parser.add_argument('-u', '--upscale_factor', type=int, default='4',
                     help='Choose the upscaling factor')
+parser.add_argument('-f', '--filter_type', type=str, default='centered_circle',
+                    help='Choose the filter')
 parser.add_argument('-o', '--sigma', type=float, default='0.05',
                     help='Choose the value of sigma')
 parser.add_argument('-c', '--color', type=str, default='gray',
@@ -44,18 +46,19 @@ method = args.method
 intermediary_step = args.intermediary_step
 debug = args.debug
 psf = args.psf
+filter_type = args.filter_type
 
 if color=='gray':
     colmap='gray'
 elif color=='rgb':
     colmap='viridis'
 else:
-    print('Undefined color')
-    exit()
+    raise ValueError('Undefined color')
 
 print('RUNNING PARAMETER', 
       '\nUpscale factor :', upscale_factor,
-      '\nSigma :', sigma)
+      '\nSigma :', sigma,
+      '\nFilter :', filter_type)
 
 #%% Path
 input_dir = os.path.join('fig', args.device, args.scene)
@@ -122,7 +125,8 @@ if debug:
                         plot_debug_intensity=True, colmap=colmap)
 else:
     im_sr,H = PG_method(HR_grid, sigma,
-                        save_dir=o_sigma_dir, out_filter=True, intermediary_step=intermediary_step, plot_debug_intensity=True, colmap=colmap)
+                        save_dir=o_sigma_dir, out_filter=True, intermediary_step=intermediary_step, plot_debug_intensity=True,
+                        filter_type=filter_type, colmap=colmap)
 io.imsave(os.path.join(o_sigma_dir, 'filter.png'), float64_to_uint8(H))
 
 if display:
