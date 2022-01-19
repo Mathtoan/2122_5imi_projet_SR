@@ -17,6 +17,9 @@ from skimage.transform import rescale
 from tqdm import tqdm
 
 
+# ----------------
+# Useful functions
+# ----------------
 def display_progression(it, it_total): # Old, should use tqdm instead
     progression = (it/it_total) * 100
     progress_bar = '['+'-'*(int(progression)//5)+' '*(int(100/5)-int(progression)//5)+']'
@@ -50,43 +53,6 @@ def save_im(path, im, colmap, new=False):
     else:
         try: plt.imsave(path, float64_to_uint8(im), cmap=colmap)
         except: plt.imsave(path, float64_to_uint8(im[:,:,0]), cmap=colmap)
-# psf2otf
-def gaussian_2d(h, w,sigma_x, sigma_y, meshgrid=False):
-    # 'Normalized [-1,1] meshgrids' 
-    u = np.linspace(-(w-1)/2.,(w-1)/2., w)/((w-1)/2)
-    v = np.linspace(-(h-1)/2.,(h-1)/2., h)/((h-1)/2)
-    U,V = np.meshgrid(u,v)
-
-    H = np.exp(-0.5*((U/sigma_x)**2+(V/sigma_y)**2)) #/(np.sqrt(2*np.pi*sigma_x*sigma_y))
-    if not(meshgrid):
-        return H
-    else:
-        return U, V, H
-
-def centered_square(h, w,sigma):
-    u = np.linspace(-(w-1)/2.,(w-1)/2., w)/((w-1)/2)
-    v = np.linspace(-(h-1)/2.,(h-1)/2., h)/((h-1)/2)
-    U,V = np.meshgrid(u,v)
-
-    H = np.zeros(U.shape)
-    for i in range(U.shape[0]):
-        for j in range(U.shape[1]):
-            if abs(U[i][j])<sigma and abs(V[i][j])<sigma:
-                H[i][j] = 1.
-    return H
-
-def centered_circle(h,w,sigma):
-    # 'Normalized [-1,1] meshgrids' 
-    u = np.linspace(-(w-1)/2.,(w-1)/2., w)/((w-1)/2)
-    v = np.linspace(-(h-1)/2.,(h-1)/2., h)/((h-1)/2)
-    U,V = np.meshgrid(u,v)
-
-    H = np.zeros(U.shape)
-    for i in range(U.shape[0]):
-        for j in range(U.shape[1]):
-            if U[i][j]**2 + V[i][j]**2 < sigma**2:
-                H[i][j] = 1
-    return H
 
 def image_histogram(im, title, bins=np.linspace(0,1,256), save_dir=None):
     plt.figure(figsize=(10,7))
@@ -98,7 +64,10 @@ def image_histogram(im, title, bins=np.linspace(0,1,256), save_dir=None):
     else:
         plt.savefig(save_dir, dpi=200)
     plt.close()
-    
+
+# ----------------------
+# Registration functions
+# ----------------------
 def creation_HR_grid(im_ref, list_image_input_dir, idx_ref, upscale_factor, method, color):
     print('---- Creation HR grid ----')
     global_start_time = time.time()
@@ -345,7 +314,7 @@ def computing_regitration_itk(im_ref, im_to_register, upscale_factor, display=Fa
     except: dim=1
 
     # ----------------------
-    # Lecture des images
+    # Image reading
     # ----------------------
     
     try : 
@@ -368,7 +337,7 @@ def computing_regitration_itk(im_ref, im_to_register, upscale_factor, display=Fa
     im_to_register_up_itk = itk.GetImageFromArray(im_to_register_up)
 
     # ----------------------
-    # Optimiseur
+    # Optimizer
     # ----------------------
     optimizer = itk.RegularStepGradientDescentOptimizer.New() # Instance de la classe d'optimiseur choisie
     optimizer.SetMaximumStepLength(.1)
@@ -376,7 +345,7 @@ def computing_regitration_itk(im_ref, im_to_register, upscale_factor, display=Fa
     optimizer.SetNumberOfIterations(1000)
     optimizer.SetScales([500, 1, 1, 1, 1])
     # ----------------------
-    # initial Parameter
+    # initial Parameters
     # ----------------------
 
     initialTransform = itk.CenteredRigid2DTransform[itk.D].New() # Instance de la classe de transformation choisie
@@ -389,7 +358,7 @@ def computing_regitration_itk(im_ref, im_to_register, upscale_factor, display=Fa
     initialParameters[4] = 0
 
     # ----------------------
-    # Interpolateur
+    # Interpolator
     # ----------------------
 
     interpolator = itk.NearestNeighborInterpolateImageFunction[im_to_register_itk_type, itk.D].New()
@@ -400,7 +369,7 @@ def computing_regitration_itk(im_ref, im_to_register, upscale_factor, display=Fa
     metric = itk.MeanSquaresImageToImageMetric[im_ref_itk_type, im_to_register_itk_type].New()
 
     # ----------------------
-    # Exécution du recalage
+    # Registration
     # ----------------------
 
     registration_filter = itk.ImageRegistrationMethod[im_ref_itk_type, im_to_register_itk_type].New() # Instance de la classe de recalage
@@ -414,7 +383,7 @@ def computing_regitration_itk(im_ref, im_to_register, upscale_factor, display=Fa
     registration_filter.Update() # Exécution du recalage
 
     # ----------------------
-    # final Parameter upscaled
+    # final Parameters upscaled
     # ----------------------
     
     final_transform = registration_filter.GetTransform()
@@ -494,6 +463,46 @@ def computing_regitration_itk(im_ref, im_to_register, upscale_factor, display=Fa
 
     return registered_im
 
+# -------------------------------------
+# Filtering and interpolation functions
+# -------------------------------------
+def gaussian_2d(h, w,sigma_x, sigma_y, meshgrid=False):
+    # 'Normalized [-1,1] meshgrids' 
+    u = np.linspace(-(w-1)/2.,(w-1)/2., w)/((w-1)/2)
+    v = np.linspace(-(h-1)/2.,(h-1)/2., h)/((h-1)/2)
+    U,V = np.meshgrid(u,v)
+
+    H = np.exp(-0.5*((U/sigma_x)**2+(V/sigma_y)**2)) #/(np.sqrt(2*np.pi*sigma_x*sigma_y))
+    if not(meshgrid):
+        return H
+    else:
+        return U, V, H
+
+def centered_square(h, w,sigma):
+    u = np.linspace(-(w-1)/2.,(w-1)/2., w)/((w-1)/2)
+    v = np.linspace(-(h-1)/2.,(h-1)/2., h)/((h-1)/2)
+    U,V = np.meshgrid(u,v)
+
+    H = np.zeros(U.shape)
+    for i in range(U.shape[0]):
+        for j in range(U.shape[1]):
+            if abs(U[i][j])<sigma and abs(V[i][j])<sigma:
+                H[i][j] = 1.
+    return H
+
+def centered_circle(h,w,sigma):
+    # 'Normalized [-1,1] meshgrids' 
+    u = np.linspace(-(w-1)/2.,(w-1)/2., w)/((w-1)/2)
+    v = np.linspace(-(h-1)/2.,(h-1)/2., h)/((h-1)/2)
+    U,V = np.meshgrid(u,v)
+
+    H = np.zeros(U.shape)
+    for i in range(U.shape[0]):
+        for j in range(U.shape[1]):
+            if U[i][j]**2 + V[i][j]**2 < sigma**2:
+                H[i][j] = 1
+    return H
+
 
 def PG_method(HR_grid, sigma,
               out_filter=False, intermediary_step=None, eps=1e-5,save_dir=None, psf=False,
@@ -506,12 +515,12 @@ def PG_method(HR_grid, sigma,
     
     global_start_time = time.time()
     print('---- Papoulis–Gerchberg method ----')
+    print('HR size :', HR_grid.shape)
     print("initialization : generating filter")
     initialization_start_time = time.time()
 
     im_sr = HR_grid
     sr_size = HR_grid.shape
-    print(HR_grid.shape)
 
     if filter_type == 'centered_circle' or filter_type == 'circle':
         filter = centered_circle(sr_size[0], sr_size[1],sigma)
@@ -524,7 +533,7 @@ def PG_method(HR_grid, sigma,
     
     initialization_time_str = format_time(time.time() - initialization_start_time)
     global_time_str = format_time(time.time() - global_start_time)
-    print('Execution time : ' + initialization_time_str + ' | Total execution time : ' + global_time_str)
+    print('Execution time : ' + initialization_time_str + ' | Total execution time : ' + global_time_str + '\n')
 
     err = eps+1e3
     MSE = []
@@ -628,14 +637,14 @@ def PG_method(HR_grid, sigma,
                 save_path = os.path.join(save_dir, 'it_'+str(i))
                 if not(os.path.exists(save_path)):
                     os.makedirs(save_path)
-                save_im(os.path.join(save_path,'sr_image_new.png'), im_sr.real)
+                save_im(os.path.join(save_path,'sr_image_new.png'), im_sr.real, 'gray')
                 image_histogram(im_sr, 'Histogram SR Image (it=%i)'%(i), save_dir=os.path.join(save_path,'hist_im_sr.png'))
 
         interation_time_str = format_time(time.time() - interation_start_time)
         global_time_str = format_time(time.time() - global_start_time)
 
 
-        print('Execution time : ' + interation_time_str + ' | Total execution time : ' + global_time_str)
+        print('Execution time : ' + interation_time_str + ' | Total execution time : ' + global_time_str + '\n')
     
     if i==max_steps:
         print("/!\ Max steps reached /!\ ")
